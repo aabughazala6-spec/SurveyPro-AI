@@ -80,16 +80,7 @@ export default function ProjectsPage() {
   };
 
   const openProject = async (project: ProjectRecord) => {
-    const pointCount = await db.points.where('projectId').equals(project.id).count();
-    setCurrentProject({
-      id: project.id,
-      name: project.name,
-      location: project.description || 'غير محدد',
-      areaSquareMeters: project.area,
-      pointCount,
-      perimeter: project.perimeter,
-      updatedAt: formatDate(project.createdAt),
-    });
+    setCurrentProject(project);
     toast.success(`تم تحميل المشروع: ${project.name}`);
   };
 
@@ -137,16 +128,7 @@ ${placemarks.join('\n')}
         await ensureDefaultProject();
         const def = await db.projects.get(DEFAULT_PROJECT.id);
         if (def) {
-          const count = await db.points.where('projectId').equals(def.id).count();
-          setCurrentProject({
-            id: def.id,
-            name: def.name,
-            location: def.description || 'غير محدد',
-            areaSquareMeters: def.area,
-            pointCount: count,
-            perimeter: def.perimeter,
-            updatedAt: formatDate(def.createdAt),
-          });
+          setCurrentProject(def);
         }
       }
       toast.success('تم حذف المشروع وكل نقاطه');

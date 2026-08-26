@@ -1,101 +1,424 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import proj4 from 'proj4';
-import { Crosshair, LocateFixed, RefreshCw, ArrowLeftRight } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Calculator,
+  CheckCircle2,
+  Copy,
+  Crosshair,
+  FileSpreadsheet,
+  Globe2,
+  LocateFixed,
+  RefreshCw,
+  Sparkles,
+} from 'lucide-react';
 import { toast } from 'sonner';
-
-const WGS84 = 'EPSG:4326';
-const UTM38N = 'EPSG:32638';
-
-type Direction = 'wgs84-to-utm' | 'utm-to-wgs84';
-
-type CoordinateValues = {
-  first: string;
-  second: string;
-};
+import { SUPPORTED_CRS, transformCoordinates } from '@/lib/crs-definitions';
+import { useAppStore } from '@/lib/stores/app-store';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 
 export function CoordinateForm() {
-  const [direction, setDirection] = useState<Direction>('wgs84-to-utm');
-  const [values, setValues] = useState<CoordinateValues>({ first: '', second: '' });
-  const [result, setResult] = useState<CoordinateValues | null>(null);
-  const [isLocating, setIsLocating] = useState(false);
+  const currentProjectId = useAppStore((state) => state.currentProjectId);
+  const activeCrs = useAppStore((state) => state.activeCrs);
+  const setActiveCrs = useAppStore((state) => state.setActiveCrs);
 
-  const isWgs84 = direction === 'wgs84-to-utm';
-  const inputLabels = isWgs84 ? ['خط العرض Latitude', 'خط الطول Longitude'] : ['الشمال Northing', 'الشرق Easting'];
-  const resultLabels = isWgs84 ? ['الشمال Northing', 'الشرق Easting'] : ['خط العرض Latitude', 'خط الطول Longitude'];
+  const livePoints = useLiveQuery(
+    () => db.points.where('projectId').equals(currentProjectId).toArray(),
+    [currentProjectId]
+  );
+  const points = useMemo(() => livePoints ?? [], [livePoints]);
 
-  const updateValue = (key: keyof CoordinateValues, value: string) => {
-    setValues((current) => ({ ...current, [key]: value }));
-    setResult(null);
+  const [mode, setMode] = useState<'single' | 'batch'>('single');
+  const [sourceCrs, setSourceCrs] = useState<string>('EPSG:4326');
+  const [targetCrs, setTargetCrs] = useState<string>('EPSG:32638');
+
+  // Single Point Input
+  const [inputX, setInputX] = useState<string>('46.675300'); // Longitude or Easting
+  const [inputY, setInputY] = useState<string>('24.713600'); // Latitude or Northing
+  const [inputZ, setInputZ] = useState<string>('648.50');
+  const [convertedResult, setConvertedResult] = useState<{ x: number; y: number; z: number } | null>(
+    null
+  );
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [isBatchTransforming, setIsBatchTransforming] = useState<boolean>(false);
+
+  const sourceObj = SUPPORTED_CRS.find((c) => c.code === sourceCrs);
+  const targetObj = SUPPORTED_CRS.find((c) => c.code === targetCrs);
+
+  const handleSwapCrs = () => {
+    const temp = sourceCrs;
+    setSourceCrs(targetCrs);
+    setTargetCrs(temp);
+    setConvertedResult(null);
   };
 
-  const convert = () => {
-    const first = Number(values.first);
-    const second = Number(values.second);
-    if (!Number.isFinite(first) || !Number.isFinite(second)) {
-      toast.error('أدخل قيم إحداثيات صحيحة قبل التحويل');
+  const handleConvertSingle = () => {
+    const x = parseFloat(inputX);
+    const y = parseFloat(inputY);
+    const z = parseFloat(inputZ || '0');
+
+    if (isNaN(x) || isNaN(y)) {
+      toast.error('أدخل قيم إحداثيات رقمية صحيحة');
       return;
     }
 
     try {
-      const converted = isWgs84
-        ? proj4(WGS84, UTM38N, [second, first])
-        : proj4(UTM38N, WGS84, [second, first]);
-      setResult({ first: converted[1].toFixed(6), second: converted[0].toFixed(6) });
+      const res = transformCoordinates(x, y, z, sourceCrs, targetCrs);
+      setConvertedResult(res);
       toast.success('تم تحويل الإحداثيات بنجاح');
-    } catch {
-      toast.error('تعذر تحويل الإحداثيات، تحقق من القيم المدخلة');
+    } catch (err) {
+      console.error(err);
+      toast.error('فشل التحويل. تحقق من صحة نطاق الإحداثيات للنظام المختار.');
     }
   };
 
-  const getCurrentLocation = () => {
+  const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast.error('المتصفح لا يدعم تحديد الموقع');
+      toast.error('المتصفح لا يدعم تحديد الموقع الجغرافي');
       return;
     }
 
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-        setDirection('wgs84-to-utm');
-        setValues({ first: latitude.toFixed(6), second: longitude.toFixed(6) });
-        setResult(null);
+        const { latitude, longitude, altitude } = position.coords;
+        setSourceCrs('EPSG:4326');
+        setInputX(longitude.toFixed(7));
+        setInputY(latitude.toFixed(7));
+        if (altitude !== null) {
+          setInputZ(altitude.toFixed(2));
+        }
+        setConvertedResult(null);
         setIsLocating(false);
-        toast.success('تم جلب موقعك الحالي');
+        toast.success('تم جلب إحداثيات GPS لموقعك الحالي');
       },
-      () => {
+      (err) => {
         setIsLocating(false);
-        toast.error('لم نتمكن من جلب الموقع. تحقق من صلاحية الوصول للموقع.');
+        toast.error('تعذر الوصول للموقع. يرجى التأكد من تفعيل صلاحيات الـ GPS');
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
+  const handleBatchTransformProject = async () => {
+    if (!points.length) {
+      toast.error('لا توجد نقاط في المشروع لتحويلها');
+      return;
+    }
+
+    setIsBatchTransforming(true);
+    try {
+      let successCount = 0;
+      for (const p of points) {
+        const trans = transformCoordinates(p.easting, p.northing, p.elevation, sourceCrs, targetCrs);
+        await db.points.update(p.id, {
+          easting: trans.x,
+          northing: trans.y,
+          elevation: trans.z,
+          timestamp: new Date().toISOString(),
+        });
+        successCount++;
+      }
+
+      await db.projects.update(currentProjectId, {
+        crsCode: targetCrs,
+        updatedAt: new Date().toISOString(),
+      });
+      setActiveCrs(targetCrs);
+
+      toast.success(`تم تحويل ${successCount} نقطة في المشروع بنجاح إلى ${targetCrs}`);
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء تحويل نقاط المشروع');
+    } finally {
+      setIsBatchTransforming(false);
+    }
+  };
+
   return (
-    <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-      <section className="glass-card p-5 sm:p-7">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div><div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400"><Crosshair className="h-5 w-5" /></div><h2 className="text-lg font-bold text-white">إدخال الإحداثيات</h2><p className="mt-1 text-xs text-slate-500">اختر نظام الإحداثيات وأدخل القيم للتحويل</p></div>
-          <button onClick={() => { setValues({ first: '', second: '' }); setResult(null); }} className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200" aria-label="مسح الحقول"><RefreshCw className="h-4 w-4" /></button>
+    <div className="space-y-6">
+      {/* MODE TOGGLE */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setMode('single')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+            mode === 'single'
+              ? 'bg-sky-500 text-white shadow-lg shadow-sky-950/40'
+              : 'border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-white'
+          }`}
+        >
+          <Crosshair className="h-4 w-4" />
+          تحويل نقطة مفردة (Single Point)
+        </button>
+        <button
+          onClick={() => setMode('batch')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+            mode === 'batch'
+              ? 'bg-sky-500 text-white shadow-lg shadow-sky-950/40'
+              : 'border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-white'
+          }`}
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          تحويل جماعي لنقاط المشروع ({points.length} نقطة)
+        </button>
+      </div>
+
+      {/* CRS SELECTION ROW */}
+      <div className="glass-card p-5 sm:p-7">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-bold text-white">اختيار أنظمة الإحداثيات والمرجع الجيوديسي</h2>
+          <button
+            onClick={handleSwapCrs}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-sky-400 hover:bg-slate-700"
+          >
+            <ArrowLeftRight className="h-3.5 w-3.5" />
+            عكس الاتجاه
+          </button>
         </div>
-        <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-950/70 p-1.5">
-          <button onClick={() => { setDirection('wgs84-to-utm'); setResult(null); }} className={`rounded-lg px-3 py-3 text-xs font-semibold transition-all ${isWgs84 ? 'bg-sky-500 text-white shadow-lg shadow-sky-950/30' : 'text-slate-500 hover:text-slate-200'}`}>WGS84 <span className="block mt-1 text-[10px] font-normal opacity-70">إلى UTM 38N</span></button>
-          <button onClick={() => { setDirection('utm-to-wgs84'); setResult(null); }} className={`rounded-lg px-3 py-3 text-xs font-semibold transition-all ${!isWgs84 ? 'bg-sky-500 text-white shadow-lg shadow-sky-950/30' : 'text-slate-500 hover:text-slate-200'}`}>UTM 38N <span className="block mt-1 text-[10px] font-normal opacity-70">إلى WGS84</span></button>
-        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
-          {inputLabels.map((label, index) => { const key = index === 0 ? 'first' : 'second'; return <label key={label} className="block"><span className="mb-2 block text-xs font-semibold text-slate-400">{label}</span><input dir="ltr" inputMode="decimal" value={values[key]} onChange={(event) => updateValue(key, event.target.value)} placeholder={isWgs84 ? (index === 0 ? '24.7136' : '46.6753') : (index === 0 ? '2732345.65' : '466753.21')} className="h-12 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 text-sm text-white outline-none transition-colors placeholder:text-slate-700 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10" /></label>; })}
+          {/* SOURCE CRS */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <span className="mb-2 block text-xs font-bold text-slate-400">النظام المصدر (Source CRS)</span>
+            <select
+              value={sourceCrs}
+              onChange={(e) => {
+                setSourceCrs(e.target.value);
+                setConvertedResult(null);
+              }}
+              className="h-11 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 text-xs text-white outline-none focus:border-sky-500"
+            >
+              {SUPPORTED_CRS.map((crs) => (
+                <option key={crs.code} value={crs.code}>
+                  {crs.code} — {crs.nameAr} ({crs.category})
+                </option>
+              ))}
+            </select>
+            {sourceObj && (
+              <p className="mt-2 text-[11px] text-slate-500">
+                {sourceObj.nameEn} • {sourceObj.type === 'GEOGRAPHIC_2D' ? 'درجات عشرية Lat/Lon' : 'إسقاط مستوي أمتار (E, N)'}
+              </p>
+            )}
+          </div>
+
+          {/* TARGET CRS */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <span className="mb-2 block text-xs font-bold text-slate-400">النظام الهدف (Target CRS)</span>
+            <select
+              value={targetCrs}
+              onChange={(e) => {
+                setTargetCrs(e.target.value);
+                setConvertedResult(null);
+              }}
+              className="h-11 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 text-xs text-white outline-none focus:border-sky-500"
+            >
+              {SUPPORTED_CRS.map((crs) => (
+                <option key={crs.code} value={crs.code}>
+                  {crs.code} — {crs.nameAr} ({crs.category})
+                </option>
+              ))}
+            </select>
+            {targetObj && (
+              <p className="mt-2 text-[11px] text-slate-500">
+                {targetObj.nameEn} • {targetObj.type === 'GEOGRAPHIC_2D' ? 'درجات عشرية Lat/Lon' : 'إسقاط مستوي أمتار (E, N)'}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <button onClick={convert} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 text-sm font-bold text-white shadow-lg shadow-sky-950/30 transition-all hover:bg-sky-400 active:scale-[0.98]"><ArrowLeftRight className="h-4 w-4" /> تحويل الإحداثيات</button>
-          <button onClick={getCurrentLocation} disabled={isLocating} className="flex h-12 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-5 text-sm font-semibold text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800 disabled:opacity-50"><LocateFixed className={`h-4 w-4 text-emerald-400 ${isLocating ? 'animate-spin' : ''}`} /> {isLocating ? 'جاري التحديد...' : 'جلب موقعي الحالي'}</button>
+      </div>
+
+      {/* SINGLE POINT CONVERSION VIEW */}
+      {mode === 'single' ? (
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <section className="glass-card p-5 sm:p-7">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-base font-bold text-white">إدخال قيم الإحداثيات</h3>
+              <button
+                onClick={handleGetCurrentLocation}
+                disabled={isLocating}
+                className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
+              >
+                <LocateFixed className={`h-4 w-4 ${isLocating ? 'animate-spin' : ''}`} />
+                {isLocating ? 'جاري التحديد...' : 'موقعي الحالي (GPS)'}
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-400">
+                  {sourceObj?.type === 'GEOGRAPHIC_2D'
+                    ? 'خط الطول Longitude (X) بالدرجات'
+                    : 'الشرق Easting (X) بالمتر'}
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  dir="ltr"
+                  value={inputX}
+                  onChange={(e) => {
+                    setInputX(e.target.value);
+                    setConvertedResult(null);
+                  }}
+                  className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-400">
+                  {sourceObj?.type === 'GEOGRAPHIC_2D'
+                    ? 'خط العرض Latitude (Y) بالدرجات'
+                    : 'الشمال Northing (Y) بالمتر'}
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  dir="ltr"
+                  value={inputY}
+                  onChange={(e) => {
+                    setInputY(e.target.value);
+                    setConvertedResult(null);
+                  }}
+                  className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-400">
+                  المنسوب / الارتفاع Elevation (Z) اختياري
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  dir="ltr"
+                  value={inputZ}
+                  onChange={(e) => {
+                    setInputZ(e.target.value);
+                    setConvertedResult(null);
+                  }}
+                  className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+                />
+              </div>
+
+              <button
+                onClick={handleConvertSingle}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-sky-500 text-xs font-bold text-white shadow-lg shadow-sky-950/30 hover:bg-sky-400"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                تحويل الإحداثيات الآن
+              </button>
+            </div>
+          </section>
+
+          {/* RESULT DISPLAY */}
+          <section className="glass-card p-5 sm:p-7">
+            <h3 className="text-base font-bold text-white">الإحداثيات الناتجة (Converted Result)</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              النظام الهدف: <strong className="text-slate-300">{targetCrs}</strong>
+            </p>
+
+            {convertedResult ? (
+              <div className="mt-5 space-y-4">
+                <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">
+                      {targetObj?.type === 'GEOGRAPHIC_2D' ? 'خط الطول Longitude (X)' : 'الشرق Easting (X)'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(convertedResult.x.toString());
+                        toast.success('تم نسخ الإحداثي');
+                      }}
+                      className="text-slate-400 hover:text-white"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p dir="ltr" className="mt-1 text-xl font-bold text-sky-300">
+                    {targetObj?.type === 'GEOGRAPHIC_2D'
+                      ? convertedResult.x.toFixed(7)
+                      : convertedResult.x.toFixed(4)}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">
+                      {targetObj?.type === 'GEOGRAPHIC_2D' ? 'خط العرض Latitude (Y)' : 'الشمال Northing (Y)'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(convertedResult.y.toString());
+                        toast.success('تم نسخ الإحداثي');
+                      }}
+                      className="text-slate-400 hover:text-white"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p dir="ltr" className="mt-1 text-xl font-bold text-sky-300">
+                    {targetObj?.type === 'GEOGRAPHIC_2D'
+                      ? convertedResult.y.toFixed(7)
+                      : convertedResult.y.toFixed(4)}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <span className="text-xs text-slate-400">المنسوب Elevation (Z)</span>
+                  <p dir="ltr" className="mt-1 text-lg font-bold text-emerald-400">
+                    {convertedResult.z.toFixed(3)} م
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-10 flex flex-col items-center justify-center text-center">
+                <Globe2 className="h-10 w-10 text-slate-700" />
+                <p className="mt-3 text-xs text-slate-500">أدخل الإحداثيات واضغط تحويل لعرض النتيجة</p>
+              </div>
+            )}
+          </section>
         </div>
-      </section>
-      <section className={`glass-card relative overflow-hidden p-5 sm:p-7 ${result ? 'border-sky-500/30' : ''}`}>
-        <div className="absolute -left-16 -top-16 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
-        <div className="relative"><p className="mb-2 text-xs font-semibold uppercase tracking-widest text-sky-400">النتيجة</p><h2 className="text-lg font-bold text-white">الإحداثيات المحولة</h2><p className="mt-1 text-xs text-slate-500">{result ? 'تم الحساب باستخدام نظام UTM Zone 38N' : 'ستظهر النتيجة هنا بعد تنفيذ التحويل'}</p>{result ? <div className="mt-8 space-y-4">{resultLabels.map((label, index) => <div key={label} className="rounded-xl border border-sky-500/15 bg-sky-500/5 p-4"><p className="mb-2 text-xs text-slate-500">{label}</p><p dir="ltr" className="text-xl font-bold tracking-wide text-sky-300">{result[index === 0 ? 'first' : 'second']}</p></div>)}<div className="mt-5 flex items-center gap-2 text-[11px] text-emerald-400"><span className="h-2 w-2 rounded-full bg-emerald-400" />دقة العرض: 6 منازل عشرية</div></div> : <div className="mt-8 flex min-h-[230px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-800 text-center"><Crosshair className="mb-3 h-9 w-9 text-slate-700" /><p className="text-sm text-slate-500">أدخل الإحداثيات واضغط تحويل</p><p className="mt-1 text-xs text-slate-700">يمكنك أيضاً استخدام موقعك الحالي</p></div>}</div>
-      </section>
+      ) : (
+        /* BATCH CONVERSION VIEW */
+        <section className="glass-card p-5 sm:p-7">
+          <div className="mb-5">
+            <h3 className="text-base font-bold text-white">التحويل الجماعي لنقاط المشروع</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              تحويل كامل إحداثيات نقاط الرفع المساحي في المشروع ({points.length} نقطة) من {sourceCrs} إلى {targetCrs}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-200">
+            <strong>⚠️ تنبيه مهم:</strong> سيؤدي هذا الإجراء إلى إعادة حساب وتحديث إحداثيات جميع نقاط المشروع في قاعدة البيانات بشكل دائم.
+          </div>
+
+          <div className="mt-6 flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-300">
+              عدد النقاط الجاهزة للتحويل: <strong className="text-white">{points.length}</strong> نقطة
+            </span>
+
+            <button
+              onClick={handleBatchTransformProject}
+              disabled={isBatchTransforming || !points.length}
+              className="flex items-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-sky-950/30 hover:bg-sky-400 disabled:opacity-50"
+            >
+              {isBatchTransforming ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  جاري تحويل النقاط...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  تحويل جميع نقاط المشروع الآن
+                </>
+              )}
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -1,37 +1,47 @@
 'use client';
 
 import { create } from 'zustand';
-
-export type Project = {
-  id: string;
-  name: string;
-  location: string;
-  areaSquareMeters: number;
-  pointCount: number;
-  perimeter: number;
-  updatedAt: string;
-};
+import { persist } from 'zustand/middleware';
+import { DEFAULT_PROJECT, type ProjectRecord } from '@/lib/db';
 
 type AppState = {
   isOnline: boolean;
-  currentProject: Project;
+  currentProjectId: string;
+  currentProject: ProjectRecord;
+  activeCrs: string;
+  selectedPointId: string | null;
   setOnline: (isOnline: boolean) => void;
-  setCurrentProject: (project: Project) => void;
+  setCurrentProject: (project: ProjectRecord) => void;
+  setCurrentProjectId: (id: string) => void;
+  setActiveCrs: (crs: string) => void;
+  setSelectedPointId: (id: string | null) => void;
 };
 
-const defaultProject: Project = {
-  id: 'project-1',
-  name: 'مخطط أرض النخيل',
-  location: 'الرياض، المملكة العربية السعودية',
-  areaSquareMeters: 12450.75,
-  pointCount: 48,
-  perimeter: 512.3,
-  updatedAt: 'منذ 12 دقيقة',
-};
-
-export const useAppStore = create<AppState>((set) => ({
-  isOnline: true,
-  currentProject: defaultProject,
-  setOnline: (isOnline: boolean) => set({ isOnline }),
-  setCurrentProject: (project: Project) => set({ currentProject: project }),
-}));
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      isOnline: true,
+      currentProjectId: DEFAULT_PROJECT.id,
+      currentProject: DEFAULT_PROJECT,
+      activeCrs: DEFAULT_PROJECT.crsCode || 'EPSG:32638',
+      selectedPointId: null,
+      setOnline: (isOnline: boolean) => set({ isOnline }),
+      setCurrentProject: (project: ProjectRecord) =>
+        set({
+          currentProject: project,
+          currentProjectId: project.id,
+          activeCrs: project.crsCode || 'EPSG:32638',
+        }),
+      setCurrentProjectId: (id: string) => set({ currentProjectId: id }),
+      setActiveCrs: (activeCrs: string) => set({ activeCrs }),
+      setSelectedPointId: (selectedPointId: string | null) => set({ selectedPointId }),
+    }),
+    {
+      name: 'surveypro-app-storage',
+      partialize: (state) => ({
+        currentProjectId: state.currentProjectId,
+        activeCrs: state.activeCrs,
+      }),
+    }
+  )
+);
