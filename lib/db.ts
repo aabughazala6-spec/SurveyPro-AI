@@ -1,5 +1,8 @@
 import Dexie, { type Table } from 'dexie';
 
+export type ProjectStatus = 'DRAFT' | 'IN_PROGRESS' | 'QA_VALIDATED' | 'COMPLETED';
+export type DatumValidationStatus = 'VALIDATED' | 'REQUIRES_GCP_VALIDATION';
+
 export type ProjectRecord = {
   id: string;
   name: string;
@@ -9,6 +12,12 @@ export type ProjectRecord = {
   area: number;
   perimeter: number;
   crsCode?: string;
+  // Phase 3.1 Extensions (Optional for backward compatibility)
+  status?: ProjectStatus;
+  datumValidationStatus?: DatumValidationStatus;
+  pointCount?: number;
+  lastQaqcAt?: string;
+  lastQaqcScore?: number | null;
 };
 
 export type PointRecord = {
@@ -20,18 +29,75 @@ export type PointRecord = {
   elevation: number;
   description: string;
   timestamp: string;
+  // Phase 3.1 Extension: Engineering QA flag (distinct from temporary UI selection)
+  flagged?: boolean;
+  layer?: string;
+};
+
+export type AuditOperation =
+  | 'PROJECT_CREATED'
+  | 'PROJECT_UPDATED'
+  | 'IMPORT_COMPLETED'
+  | 'CRS_CHANGED'
+  | 'POINT_CREATED'
+  | 'POINT_UPDATED'
+  | 'POINT_DELETED'
+  | 'BULK_POINT_UPDATE'
+  | 'QAQC_RUN'
+  | 'ENGINEERING_CALCULATION'
+  | 'EXPORT_COMPLETED'
+  | 'REPORT_GENERATED';
+
+export type AuditSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
+
+export type AuditLogRecord = {
+  id: string;
+  projectId: string;
+  timestamp: string;
+  operation: AuditOperation;
+  severity: AuditSeverity;
+  summary: string;
+  metadata?: Record<string, unknown>;
 };
 
 class SurveyDatabase extends Dexie {
   projects!: Table<ProjectRecord, string>;
   points!: Table<PointRecord, string>;
+  auditLogs!: Table<AuditLogRecord, string>;
 
   constructor() {
     super('surveypro-ai');
+
+    // Version 2: Previous baseline
     this.version(2).stores({
       projects: 'id, createdAt, name, crsCode',
       points: 'id, projectId, pointNumber, timestamp, [projectId+pointNumber]',
     });
+
+    // Version 3: Phase 3.1 upgrade adding auditLogs and extra indexes safely
+    this.version(3)
+      .stores({
+        projects: 'id, createdAt, name, crsCode, status',
+        points: 'id, projectId, pointNumber, timestamp, [projectId+pointNumber], [projectId+flagged]',
+        auditLogs: 'id, projectId, timestamp, operation, severity, [projectId+timestamp]',
+      })
+      .upgrade((tx) => {
+        // Upgrade transformer: ensure existing projects have default statuses non-destructively
+        return tx
+          .table('projects')
+          .toCollection()
+          .modify((project: ProjectRecord) => {
+            if (!project.status) {
+              project.status = 'IN_PROGRESS';
+            }
+            if (!project.datumValidationStatus) {
+              // Default to conservative check
+              project.datumValidationStatus = project.crsCode?.startsWith('EPSG:20') || project.crsCode?.startsWith('EPSG:22')
+                ? 'REQUIRES_GCP_VALIDATION'
+                : 'VALIDATED';
+            }
+          });
+      });
   }
 }
 
@@ -46,6 +112,8 @@ export const DEFAULT_PROJECT: ProjectRecord = {
   area: 12450.75,
   perimeter: 512.3,
   crsCode: 'EPSG:32638',
+  status: 'IN_PROGRESS',
+  datumValidationStatus: 'VALIDATED', // UTM Zone 38N on WGS84 is authoritative
 };
 
 // Initial realistic surveying points for default project (UTM Zone 38N - Riyadh region)

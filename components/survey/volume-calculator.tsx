@@ -1,30 +1,24 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  ArrowDown,
-  ArrowUp,
-  Calculator,
   Download,
+  Info,
   Layers,
   Scale,
   Shovel,
   TrendingDown,
   TrendingUp,
+  FileSpreadsheet,
+  AlertCircle,
+  HelpCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { db, ensureDefaultProject, type PointRecord } from '@/lib/db';
+import { db } from '@/lib/db';
 import { useAppStore } from '@/lib/stores/app-store';
-import { calculatePolygonArea } from '@/lib/survey-calculations';
+import { calculatePolygonArea, formatNumber } from '@/lib/survey-calculations';
 import { downloadFile } from '@/lib/dxf-generator';
-
-function formatNumber(value: number, decimals = 2) {
-  return value.toLocaleString('ar-SA', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
 
 export function VolumeCalculator() {
   const currentProjectId = useAppStore((state) => state.currentProjectId);
@@ -36,29 +30,28 @@ export function VolumeCalculator() {
   );
   const points = useMemo(() => livePoints ?? [], [livePoints]);
 
-  const [targetElevation, setTargetElevation] = useState<string>('650.000');
-  const [shrinkageFactor, setShrinkageFactor] = useState<string>('1.15'); // 15% bulking/compaction
-  const [calculationMode, setCalculationMode] = useState<'grid-tributary' | 'mean-plane'>('grid-tributary');
+  const [targetElevation, setTargetElevation] = useState<string>('100.000');
+  const [shrinkageFactor, setShrinkageFactor] = useState<string>('1.15');
 
-  useEffect(() => {
-    void ensureDefaultProject();
-  }, []);
+  const totalArea = useMemo(() => {
+    if (points.length < 3) return 0;
+    return calculatePolygonArea(points);
+  }, [points]);
 
-  const totalArea = useMemo(() => calculatePolygonArea(points), [points]);
-  const avgElevation = useMemo(
-    () => (points.length ? points.reduce((sum, p) => sum + p.elevation, 0) / points.length : 0),
-    [points]
-  );
+  const avgElevation = useMemo(() => {
+    if (!points.length) return 0;
+    return points.reduce((sum, p) => sum + p.elevation, 0) / points.length;
+  }, [points]);
 
-  // Advanced Earthwork Calculation Engine (Prismoidal / Tributary Area Method)
   const calculationResults = useMemo(() => {
+    if (points.length < 3 || totalArea <= 0) return null;
+
     const target = parseFloat(targetElevation);
     const shrinkage = parseFloat(shrinkageFactor) || 1.0;
+    if (isNaN(target)) return null;
 
-    if (isNaN(target) || points.length < 3 || totalArea <= 0) {
-      return null;
-    }
-
+    // TRIBUTARY GRID / DISCRETE POINT AREA METHOD
+    // Area allocated to each survey sample point: A_cell = Total_Polygon_Area / N
     const tributaryAreaPerPoint = totalArea / points.length;
 
     let cutVolume = 0;
@@ -105,6 +98,7 @@ export function VolumeCalculator() {
       adjustedFillVolume,
       adjustedNetBalance,
       pointDepths,
+      tributaryAreaPerPoint,
     };
   }, [points, totalArea, avgElevation, targetElevation, shrinkageFactor]);
 
@@ -114,8 +108,10 @@ export function VolumeCalculator() {
     const text = `# SurveyPro AI - تقرير حساب كميات الحفر والردم (Earthwork Quantity Report)
 تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')} - ${new Date().toLocaleTimeString('ar-SA')}
 اسم المشروع: ${currentProject.name}
+طريقة الحساب: TRIBUTARY GRID / DISCRETE POINT AREA METHOD (طريقة الخلايا المساحية النقطية)
 منسوب التصميم المستهدف: ${calculationResults.targetElevation.toFixed(3)} م
 إجمالي مساحة المضلع: ${calculationResults.totalArea.toFixed(2)} م²
+المساحة الموزعة لكل نقطة (Tributary Area): ${calculationResults.tributaryAreaPerPoint.toFixed(2)} م²
 متوسط المناسيب الطبيعية: ${calculationResults.avgElevation.toFixed(3)} م
 
 --------------------------------------------------
@@ -125,6 +121,10 @@ export function VolumeCalculator() {
 - معامل الانتفاش / الدمك (Bulking Factor): ${shrinkageFactor}
 - حجم الردم المعدل للدمك: ${calculationResults.adjustedFillVolume.toFixed(3)} م³
 - صافي توازن الأتربة (Net Earthwork Balance): ${Math.abs(calculationResults.adjustedNetBalance).toFixed(3)} م³ (${calculationResults.adjustedNetBalance >= 0 ? 'فائض حفر للتوريد/التصدير' : 'عجز ردم يتطلب توريد دفان'})
+
+--------------------------------------------------
+ملاحظة المنهجية الهندسية:
+تم حساب الحجوم باستخدام طريقة الخلايا المساحية الموزعة على نقاط الرفع المساحي (Tributary Grid/Area Method). هذه الطريقة دقيقة جداً لتقدير صافي توازن الموقع والمناسيب المتوسطة، مع ملاحظة أن الفصل الدقيق بين سطوح الحفر والردم المنحنية يتطلب شبكة رفع كثيفة أو مجسم سطحي ثلاثي الأبعاد (TIN Surface).
 
 --------------------------------------------------
 جدول أعماق وكميات كل نقطة رفع:
@@ -148,6 +148,30 @@ ${calculationResults.pointDepths
 
   return (
     <div className="space-y-6">
+      {/* METHODOLOGY TRANSPARENCY BANNER */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-orange-500/30 bg-orange-950/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/20 text-orange-400">
+            <Layers className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-white">منهجية الحساب الرياضية:</span>
+              <span className="rounded bg-orange-500/20 px-2 py-0.5 text-[11px] font-bold text-orange-300 border border-orange-500/30">
+                TRIBUTARY GRID / DISCRETE POINT AREA
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-slate-300">
+              توزيع مساحة المضلع الكلية بالتساوي على نقاط الرصد (Tributary Area = Area / N) لحساب توازن الحفر والردم الصافي.
+            </p>
+          </div>
+        </div>
+
+        <div className="text-[11px] text-slate-400">
+          * لا تعتمد الطريقة السطح المثلثي المتصل (TIN Surface)
+        </div>
+      </div>
+
       {/* INPUTS & ENGINE CONTROLS */}
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="glass-card p-5 sm:p-7">
@@ -156,9 +180,9 @@ ${calculationResults.pointDepths
               <Shovel className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">إعدادات حساب الحفر والردم (Earthwork)</h2>
+              <h2 className="text-lg font-bold text-white">إعدادات تسوية الموقع (Earthwork)</h2>
               <p className="mt-1 text-xs text-slate-400">
-                حساب كميات تسوية الموقع بطريقة الخلايا المساحية الدقيقة (Tributary Grid Method)
+                طريقة الخلايا المساحية النقطية (Tributary Grid Method)
               </p>
             </div>
           </div>
@@ -185,7 +209,7 @@ ${calculationResults.pointDepths
                 dir="ltr"
                 value={targetElevation}
                 onChange={(e) => setTargetElevation(e.target.value)}
-                placeholder="650.000"
+                placeholder="100.000"
                 className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none focus:border-orange-500"
               />
             </div>
@@ -260,78 +284,25 @@ ${calculationResults.pointDepths
                     calculationResults.adjustedNetBalance >= 0 ? 'text-red-400' : 'text-emerald-400'
                   }`}
                 >
-                  {calculationResults.adjustedNetBalance >= 0 ? '+' : ''}
-                  {formatNumber(calculationResults.adjustedNetBalance, 2)} م³
+                  {formatNumber(Math.abs(calculationResults.adjustedNetBalance), 2)} م³
                 </p>
-                <p className="mt-1 text-xs text-slate-400">
+                <span className="mt-1 block text-xs text-slate-400">
                   {calculationResults.adjustedNetBalance >= 0
-                    ? 'فائض حفر: يتطلب ترحيل نواتج الحفر خارج الموقع'
-                    : 'عجز ردم: يتطلب توريد ردميات معتمدة من الخارج'}
-                </p>
+                    ? 'فائض حفر ناتج عن التسوية (Cut Surplus)'
+                    : 'عجز ردم يتطلب توريد دفان للموقع (Fill Deficit)'}
+                </span>
               </div>
             </div>
           ) : (
-            <div className="mt-10 flex flex-col items-center justify-center text-center">
-              <Layers className="h-10 w-10 text-slate-700" />
-              <p className="mt-3 text-xs text-slate-500">أدخل منسوب التصميم لحساب الكميات</p>
+            <div className="mt-12 flex flex-col items-center justify-center text-center">
+              <AlertCircle className="h-10 w-10 text-slate-700" />
+              <p className="mt-3 text-xs text-slate-500">
+                يتطلب حساب الحجوم وجود 3 نقاط رفع على الأقل تشكل مضلعاً بمساحة صالحة.
+              </p>
             </div>
           )}
         </section>
       </div>
-
-      {/* DETAILED POINT DEPTHS TABLE */}
-      {calculationResults && (
-        <section className="glass-card p-5 sm:p-7">
-          <h3 className="mb-4 text-base font-bold text-white">
-            تفاصيل أعماق الحفر والردم لكل نقطة رفع مساحي
-          </h3>
-
-          <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-900 text-slate-400">
-                <tr>
-                  <th className="p-3">رقم النقطة</th>
-                  <th className="p-3">المنسوب الطبيعي Z</th>
-                  <th className="p-3">المنسوب المستهدف</th>
-                  <th className="p-3">النوع</th>
-                  <th className="p-3">العمق (Depth)</th>
-                  <th className="p-3">الحجم التقريبي للمنطقة</th>
-                  <th className="p-3">الوصف</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-850">
-                {calculationResults.pointDepths.map((item) => (
-                  <tr key={item.point.id}>
-                    <td className="p-3 font-bold text-sky-400">P{item.point.pointNumber}</td>
-                    <td className="p-3 font-semibold text-slate-200" dir="ltr">
-                      {item.point.elevation.toFixed(3)} م
-                    </td>
-                    <td className="p-3 text-slate-400" dir="ltr">
-                      {calculationResults.targetElevation.toFixed(3)} م
-                    </td>
-                    <td className="p-3">
-                      <span
-                        className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
-                          item.isCut ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'
-                        }`}
-                      >
-                        {item.isCut ? 'حفر (Cut)' : 'ردم (Fill)'}
-                      </span>
-                    </td>
-                    <td className="p-3 font-bold text-white" dir="ltr">
-                      {item.depth.toFixed(3)} م
-                    </td>
-                    <td className="p-3 text-slate-300" dir="ltr">
-                      {item.volume.toFixed(2)} م³
-                    </td>
-                    <td className="p-3 text-slate-400">{item.point.description || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
     </div>
   );
 }

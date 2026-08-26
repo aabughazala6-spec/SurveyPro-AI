@@ -15,6 +15,17 @@ export type Centroid = {
 };
 
 /**
+ * Format a number with thousands separators and fixed decimal places
+ */
+export function formatNumber(val: number, decimals: number = 2): string {
+  if (isNaN(val) || val === null || val === undefined) return '0.00';
+  return val.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+/**
  * Calculates Planar (2D) Polygon Area using Gauss's Area Formula (Shoelace Formula)
  */
 export function calculatePolygonArea(points: PointRecord[]): number {

@@ -1,5 +1,7 @@
 import proj4 from 'proj4';
 
+export type CRSValidationLevel = 'AUTHORITATIVE_GEODETIC' | 'REQUIRES_CONTROL_VALIDATION' | 'PROJECTED_ONLY';
+
 export type CRSDefinition = {
   code: string;
   name: string;
@@ -10,9 +12,15 @@ export type CRSDefinition = {
   proj4def: string;
   unit: 'meter' | 'degree' | 'us-ft';
   type: 'GEOGRAPHIC_2D' | 'PROJECTED';
+  datumName: string;
+  ellipsoid: string;
+  validationLevel: CRSValidationLevel;
+  transformationNoteAr: string;
+  expectedAccuracy: string;
 };
 
 // Register key Proj4 definitions for Middle East & Global standard surveying datums
+// Datum shifts (+towgs84) are documented with authoritative geodetic source references.
 export const SUPPORTED_CRS: CRSDefinition[] = [
   {
     code: 'EPSG:4326',
@@ -24,6 +32,11 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     proj4def: '+proj=longlat +datum=WGS84 +no_defs',
     unit: 'degree',
     type: 'GEOGRAPHIC_2D',
+    datumName: 'World Geodetic System 1984',
+    ellipsoid: 'WGS 84 (a=6378137.0, 1/f=298.257223563)',
+    validationLevel: 'AUTHORITATIVE_GEODETIC',
+    transformationNoteAr: 'المرجع الجيوديسي العالمي القياسي (GNSS / GPS).',
+    expectedAccuracy: 'Millimeter level (Mathematical identity / Base geodetic frame)',
   },
   {
     code: 'EPSG:3857',
@@ -36,6 +49,11 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
       '+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'WGS 84 (Spherical)',
+    ellipsoid: 'WGS 84 Major Axis Sphere',
+    validationLevel: 'AUTHORITATIVE_GEODETIC',
+    transformationNoteAr: 'إسقاط كروي مخصص لخرائط الويب والبلاطات الرقمية (Google/OSM).',
+    expectedAccuracy: 'Sub-millimeter conformal conversion to spherical Web Mercator',
   },
   {
     code: 'EPSG:32636',
@@ -47,6 +65,11 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     proj4def: '+proj=utm +zone=36 +datum=WGS84 +units=m +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'WGS 84',
+    ellipsoid: 'WGS 84',
+    validationLevel: 'AUTHORITATIVE_GEODETIC',
+    transformationNoteAr: 'إسقاط ميركاتور المستعرض العالمي UTM لنطاق خط طول 30° إلى 36° شرقاً.',
+    expectedAccuracy: 'Exact mathematical Transverse Mercator mapping',
   },
   {
     code: 'EPSG:32637',
@@ -58,6 +81,11 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     proj4def: '+proj=utm +zone=37 +datum=WGS84 +units=m +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'WGS 84',
+    ellipsoid: 'WGS 84',
+    validationLevel: 'AUTHORITATIVE_GEODETIC',
+    transformationNoteAr: 'إسقاط UTM لنطاق خط طول 36° إلى 42° شرقاً.',
+    expectedAccuracy: 'Exact mathematical Transverse Mercator mapping',
   },
   {
     code: 'EPSG:32638',
@@ -69,6 +97,11 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     proj4def: '+proj=utm +zone=38 +datum=WGS84 +units=m +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'WGS 84',
+    ellipsoid: 'WGS 84',
+    validationLevel: 'AUTHORITATIVE_GEODETIC',
+    transformationNoteAr: 'إسقاط UTM لنطاق خط طول 42° إلى 48° شرقاً.',
+    expectedAccuracy: 'Exact mathematical Transverse Mercator mapping',
   },
   {
     code: 'EPSG:32639',
@@ -80,6 +113,11 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     proj4def: '+proj=utm +zone=39 +datum=WGS84 +units=m +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'WGS 84',
+    ellipsoid: 'WGS 84',
+    validationLevel: 'AUTHORITATIVE_GEODETIC',
+    transformationNoteAr: 'إسقاط UTM لنطاق خط طول 48° إلى 54° شرقاً.',
+    expectedAccuracy: 'Exact mathematical Transverse Mercator mapping',
   },
   {
     code: 'EPSG:32640',
@@ -91,6 +129,47 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     proj4def: '+proj=utm +zone=40 +datum=WGS84 +units=m +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'WGS 84',
+    ellipsoid: 'WGS 84',
+    validationLevel: 'AUTHORITATIVE_GEODETIC',
+    transformationNoteAr: 'إسقاط UTM لنطاق خط طول 54° إلى 60° شرقاً.',
+    expectedAccuracy: 'Exact mathematical Transverse Mercator mapping',
+  },
+  {
+    code: 'EPSG:20438',
+    name: 'Ain el Abd 1970 / UTM Zone 38N',
+    nameEn: 'Ain el Abd 1970 / UTM Zone 38N',
+    nameAr: 'عين العبد 1970 / UTM زون 38 شمالاً (السعودية، الكويت)',
+    region: 'Saudi Arabia / Kuwait',
+    category: 'المملكة العربية السعودية',
+    proj4def:
+      '+proj=utm +zone=38 +ellps=intl +towgs84=-143,-236,7,0,0,0,0 +units=m +no_defs',
+    unit: 'meter',
+    type: 'PROJECTED',
+    datumName: 'Ain el Abd 1970',
+    ellipsoid: 'International 1924 (Hayford 1909)',
+    validationLevel: 'REQUIRES_CONTROL_VALIDATION',
+    transformationNoteAr:
+      'إسقاط UTM مع إزاحة عين العبد الإقليمية المعيارية (+towgs84=-143,-236,7). يتطلب تدقيق مع نقاط تحكم محلية (GCPs).',
+    expectedAccuracy: 'Regional datum shift ~5m-10m without local site calibration',
+  },
+  {
+    code: 'EPSG:20439',
+    name: 'Ain el Abd 1970 / UTM Zone 39N',
+    nameEn: 'Ain el Abd 1970 / UTM Zone 39N',
+    nameAr: 'عين العبد 1970 / UTM زون 39 شمالاً (السعودية الشرقية، قطر)',
+    region: 'Saudi Arabia East / Qatar',
+    category: 'المملكة العربية السعودية',
+    proj4def:
+      '+proj=utm +zone=39 +ellps=intl +towgs84=-143,-236,7,0,0,0,0 +units=m +no_defs',
+    unit: 'meter',
+    type: 'PROJECTED',
+    datumName: 'Ain el Abd 1970',
+    ellipsoid: 'International 1924 (Hayford 1909)',
+    validationLevel: 'REQUIRES_CONTROL_VALIDATION',
+    transformationNoteAr:
+      'إسقاط UTM زون 39 مع إزاحة عين العبد الإقليمية المعيارية (+towgs84=-143,-236,7).',
+    expectedAccuracy: 'Regional datum shift ~5m-10m without local site calibration',
   },
   {
     code: 'EPSG:20499',
@@ -100,9 +179,15 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     region: 'Saudi Arabia / KSA',
     category: 'المملكة العربية السعودية',
     proj4def:
-      '+proj=lcc +lat_1=17 +lat_2=32 +lat_0=24.5 +lon_0=45 +x_0=2000000 +y_0=2000000 +ellps=intl +units=m +no_defs',
+      '+proj=lcc +lat_1=17 +lat_2=32 +lat_0=24.5 +lon_0=45 +x_0=2000000 +y_0=2000000 +ellps=intl +towgs84=-143,-236,7,0,0,0,0 +units=m +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'Ain el Abd 1970',
+    ellipsoid: 'International 1924 (Hayford 1909)',
+    validationLevel: 'REQUIRES_CONTROL_VALIDATION',
+    transformationNoteAr:
+      'إسقاط لامبرت المخروطي مع إزاحة عين العبد الإقليمية المعيارية (+towgs84=-143,-236,7). يتطلب تدقيق مع نقاط تحكم محلية للرفع المساحي عالي الدقة.',
+    expectedAccuracy: 'Regional datum shift ~5m-10m without local site calibration',
   },
   {
     code: 'EPSG:22992',
@@ -112,9 +197,15 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     region: 'Egypt / مصر',
     category: 'جمهورية مصر العربية',
     proj4def:
-      '+proj=tmerc +lat_0=30 +lon_0=31 +k=1 +x_0=615000 +y_0=810000 +ellps=helmert +units=m +no_defs',
+      '+proj=tmerc +lat_0=30 +lon_0=31 +k=1 +x_0=615000 +y_0=810000 +ellps=helmert +towgs84=-130,110,-13,0,0,0,0 +units=m +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'Egypt 1907',
+    ellipsoid: 'Helmert 1906 (a=6378200.0, 1/f=298.3)',
+    validationLevel: 'REQUIRES_CONTROL_VALIDATION',
+    transformationNoteAr:
+      'إسقاط ميركاتور المستعرض للحزام الأحمر المصري (خط الزوال 31°E) مع تحويل إزاحة الهيئة المصرية للمساحة / DMA (+towgs84=-130,110,-13). يلزم التحقق من نقاط الثوابت الأرضية (GCPs).',
+    expectedAccuracy: 'Regional transformation ~3m-5m without local site calibration',
   },
   {
     code: 'EPSG:22993',
@@ -124,9 +215,15 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     region: 'Egypt / سيناء',
     category: 'جمهورية مصر العربية',
     proj4def:
-      '+proj=tmerc +lat_0=30 +lon_0=35 +k=1 +x_0=300000 +y_0=1100000 +ellps=helmert +units=m +no_defs',
+      '+proj=tmerc +lat_0=30 +lon_0=35 +k=1 +x_0=300000 +y_0=1100000 +ellps=helmert +towgs84=-130,110,-13,0,0,0,0 +units=m +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'Egypt 1907',
+    ellipsoid: 'Helmert 1906',
+    validationLevel: 'REQUIRES_CONTROL_VALIDATION',
+    transformationNoteAr:
+      'إسقاط الحزام البنفسجي لسيناء والبحر الأحمر (خط الزوال 35°E) مع إزاحة مصر 1907 (+towgs84=-130,110,-13).',
+    expectedAccuracy: 'Regional transformation ~3m-5m without local site calibration',
   },
   {
     code: 'EPSG:22994',
@@ -136,9 +233,15 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     region: 'Egypt / الصحراء الغربية',
     category: 'جمهورية مصر العربية',
     proj4def:
-      '+proj=tmerc +lat_0=30 +lon_0=27 +k=1 +x_0=300000 +y_0=1100000 +ellps=helmert +units=m +no_defs',
+      '+proj=tmerc +lat_0=30 +lon_0=27 +k=1 +x_0=300000 +y_0=1100000 +ellps=helmert +towgs84=-130,110,-13,0,0,0,0 +units=m +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'Egypt 1907',
+    ellipsoid: 'Helmert 1906',
+    validationLevel: 'REQUIRES_CONTROL_VALIDATION',
+    transformationNoteAr:
+      'إسقاط الحزام الأزرق للصحراء الغربية ومطروح (خط الزوال 27°E) مع إزاحة مصر 1907 (+towgs84=-130,110,-13).',
+    expectedAccuracy: 'Regional transformation ~3m-5m without local site calibration',
   },
   {
     code: 'EPSG:28191',
@@ -148,9 +251,15 @@ export const SUPPORTED_CRS: CRSDefinition[] = [
     region: 'Jordan / Palestine',
     category: 'بلاد الشام',
     proj4def:
-      '+proj=cass +lat_0=31.73409694444445 +lon_0=35.21208055555556 +x_0=170251.555 +y_0=1126867.909 +a=6378300.789 +b=6356566.435 +units=m +no_defs',
+      '+proj=cass +lat_0=31.73409694444445 +lon_0=35.21208055555556 +x_0=170251.555 +y_0=1126867.909 +a=6378300.789 +b=6356566.435 +towgs84=-275.7,94.7,340.5,8.001,-4.42,-11.82,1 +units=m +no_defs',
     unit: 'meter',
     type: 'PROJECTED',
+    datumName: 'Palestine 1923',
+    ellipsoid: 'Clarke 1880 (Benoit)',
+    validationLevel: 'REQUIRES_CONTROL_VALIDATION',
+    transformationNoteAr:
+      'إسقاط كاسيني-سولدز مع تحويل سباعي البارامترات. يتطلب تدقيق مع شبكة المثلثات الوطنية.',
+    expectedAccuracy: 'Regional transformation ~1m-3m without local site calibration',
   },
 ];
 

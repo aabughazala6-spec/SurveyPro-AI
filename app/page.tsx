@@ -234,13 +234,17 @@ export default function Home() {
           <div className="px-2 sm:px-5">
             <p className="mb-1 text-xs text-slate-500">تدقيق الجودة QA/QC</p>
             <div className="flex items-center gap-1.5">
-              <span
-                className={`text-lg font-bold ${
-                  qaReport.overallScore >= 80 ? 'text-emerald-400' : 'text-amber-400'
-                }`}
-              >
-                {qaReport.overallScore}%
-              </span>
+              {qaReport.overallScore !== null ? (
+                <span
+                  className={`text-lg font-bold ${
+                    qaReport.overallScore >= 80 ? 'text-emerald-400' : 'text-amber-400'
+                  }`}
+                >
+                  {qaReport.overallScore}%
+                </span>
+              ) : (
+                <span className="text-sm font-bold text-slate-400">غير مُقيّم</span>
+              )}
               <span className="text-[11px] text-slate-500">({qaReport.status})</span>
             </div>
             <p className="mt-0.5 text-[11px] text-slate-400">

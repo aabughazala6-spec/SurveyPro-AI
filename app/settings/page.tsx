@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   AlertTriangle,
   Bell,
+  CheckCircle2,
   ChevronLeft,
   Crown,
   Database,
@@ -11,7 +12,10 @@ import {
   LogOut,
   Mail,
   Moon,
+  Play,
+  RefreshCw,
   Settings as SettingsIcon,
+  ShieldCheck,
   Sun,
   Trash2,
   User,
@@ -19,12 +23,17 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '@/lib/db';
+import { runComprehensiveRegressionSuite } from '@/lib/regression-tests';
 
 export default function SettingsPage() {
   const [isDark, setIsDark] = useState(true);
   const [language, setLanguage] = useState('ar');
   const [clearConfirm, setClearConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+
+  // Regression Suite State
+  const [isRunningTests, setIsRunningTests] = useState(false);
+  const [testResults, setTestResults] = useState<ReturnType<typeof runComprehensiveRegressionSuite> | null>(null);
 
   const toggleTheme = () => {
     setIsDark((prev) => {
@@ -55,6 +64,23 @@ export default function SettingsPage() {
     }
   };
 
+  const handleRunRegression = () => {
+    setIsRunningTests(true);
+    try {
+      const report = runComprehensiveRegressionSuite();
+      setTestResults(report);
+      if (report.summary.failed === 0) {
+        toast.success(`اجتازت جميع الفحوصات الهندسية (${report.summary.passed}/${report.summary.total}) بنجاح 100%`);
+      } else {
+        toast.error(`فشل في ${report.summary.failed} فحص هندسي`);
+      }
+    } catch (err) {
+      toast.error('حدث خطأ أثناء تشغيل حزمة الفحص');
+    } finally {
+      setIsRunningTests(false);
+    }
+  };
+
   const handleLogout = () => {
     toast.success('تم تسجيل الخروج بنجاح', { description: 'إلى اللقاء!' });
   };
@@ -72,11 +98,84 @@ export default function SettingsPage() {
             <SettingsIcon className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">الإعدادات والملف الشخصي</h1>
-            <p className="mt-1 text-sm text-slate-400">إدارة حسابك وتفضيلات التطبيق</p>
+            <h1 className="text-2xl font-bold text-white sm:text-3xl">الإعدادات وتدقيق النظام</h1>
+            <p className="mt-1 text-sm text-slate-400">إدارة حسابك، وتفضيلات التطبيق، وفحوصات الاعتمادية الهندسية</p>
           </div>
         </div>
       </div>
+
+      {/* AUTOMATED REGRESSION TESTS SECTION */}
+      <section className="glass-card mb-5 border-emerald-500/20 p-5 sm:p-6">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">حزمة فحوصات الانحدار والاعتماد الهندسي (Regression Tests)</h2>
+              <p className="text-xs text-slate-400">
+                اختبار حتمي فوري لخوارزميات MAD، والتحويلات الجيوديسية، وCOGO، والحفر والردم
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleRunRegression}
+            disabled={isRunningTests}
+            className="flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-950/40 hover:bg-emerald-400 disabled:opacity-50"
+          >
+            {isRunningTests ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                جاري الفحص...
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4 fill-white" />
+                تشغيل كافة الفحوصات
+              </>
+            )}
+          </button>
+        </div>
+
+        {testResults && (
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 text-xs">
+              <div className="flex items-center gap-2 font-bold text-white">
+                <span>نسبة النجاح:</span>
+                <span className={testResults.summary.failed === 0 ? 'text-emerald-400' : 'text-red-400'}>
+                  {testResults.summary.successRate.toFixed(1)}% ({testResults.summary.passed}/{testResults.summary.total} فحص)
+                </span>
+              </div>
+              <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
+                {testResults.summary.failed === 0 ? 'معتمد هندسياً (VERIFIED)' : 'توجد إخفاقات'}
+              </span>
+            </div>
+
+            <div className="max-h-60 space-y-2 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+              {testResults.results.map((res, i) => (
+                <div key={i} className="flex items-start justify-between gap-3 text-xs border-b border-slate-800/40 pb-2 last:border-b-0">
+                  <div className="flex items-start gap-2">
+                    {res.passed ? (
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
+                    )}
+                    <div>
+                      <span className="font-semibold text-slate-200">{res.testName}</span>
+                      <span className="mr-2 text-[10px] text-slate-500">[{res.suite}]</span>
+                      {res.details && <p className="mt-0.5 text-[11px] text-slate-400" dir="ltr">{res.details}</p>}
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-bold ${res.passed ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {res.passed ? 'PASS' : 'FAIL'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="glass-card mb-5 p-5 sm:p-6">
         <div className="mb-5 flex items-center gap-2">
@@ -90,16 +189,16 @@ export default function SettingsPage() {
           <div className="flex-1 space-y-3 text-center sm:text-right">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-xs text-slate-500">الاسم</span>
-              <span className="text-sm font-semibold text-white">محمد عبدالله المساح</span>
+              <span className="text-sm font-semibold text-white">مهندس مساحة معتمد</span>
             </div>
             <div className="flex flex-col gap-1 border-t border-slate-800/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="flex items-center gap-1.5 text-xs text-slate-500"><Mail className="h-3.5 w-3.5" /> البريد الإلكتروني</span>
-              <span className="text-sm font-semibold text-white" dir="ltr">mohammed@surveypro.ai</span>
+              <span className="text-sm font-semibold text-white" dir="ltr">surveyor@surveypro.ai</span>
             </div>
             <div className="flex flex-col gap-1 border-t border-slate-800/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="flex items-center gap-1.5 text-xs text-slate-500"><Crown className="h-3.5 w-3.5 text-amber-400" /> نوع الاشتراك</span>
               <span className="flex items-center gap-1.5 text-sm font-semibold text-amber-400">
-                الخطة الاحترافية
+                الخطة الاحترافية (SurveyPro Enterprise)
                 <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px]">نشط</span>
               </span>
             </div>

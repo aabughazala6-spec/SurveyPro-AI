@@ -1,13 +1,22 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { callGeminiAPI } from '@/lib/ai-service';
-import { Camera, Send, Bot, Sparkles, AlertCircle } from 'lucide-react';
+import { Camera, Send, Bot, Sparkles, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '@/lib/stores/app-store';
+import { db } from '@/lib/db';
 
 export function AIAssistant({ projectData }: { projectData?: any }) {
   const storeProject = useAppStore((state) => state.currentProject);
+  const currentProjectId = useAppStore((state) => state.currentProjectId);
   const activeProject = projectData || storeProject;
+
+  const livePoints = useLiveQuery(
+    () => db.points.where('projectId').equals(currentProjectId).sortBy('pointNumber'),
+    [currentProjectId]
+  );
+  const points = livePoints ?? [];
 
   const [messages, setMessages] = useState<
     Array<{
@@ -19,12 +28,12 @@ export function AIAssistant({ projectData }: { projectData?: any }) {
   >([
     {
       role: 'ai',
-      text: `مرحباً بك! أنا مساعد SurveyPro الذكي للمساحة ونظم المعلومات الجغرافية.
+      text: `مرحباً بك! أنا مستشارك الهندسي الذكي في SurveyPro AI.
 يمكنني مساعدتك في:
-- تدقيق ومراجعة إحداثيات نقاط الرفع المساحي
-- فحص كميات الحفر والردم والارتفاعات
-- تحليل صور المخططات وشاشات أجهزة Total Station و GPS
-- تقديم استشارات وحلول هندسية مساحية`,
+- الاستعلام الحتمي عن المسافات والانحرافات بين نقاط المشروع (مثال: احسب المسافة بين P1 و P2)
+- تدقيق ومراجعة إحداثيات ومناسيب الرفع المساحي وخلوها من الشذوذ (Outliers)
+- شرح وتوضيح نتائج التحويلات الجيوديسية وحسابات الحفر والردم
+- تحليل صور المخططات وشاشات أجهزة المساحة الميدانية`,
       time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -36,9 +45,9 @@ export function AIAssistant({ projectData }: { projectData?: any }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const quickPrompts = [
-    'راجع بيانات المشروع الحالي واقترح توصيات',
-    'كيف أتأكد من خلو النقاط من الشذوذ (Outliers)؟',
-    'ما هي أفضل الممارسات لتحويل الإحداثيات إلى UTM 38N؟',
+    'احسب المسافة والانحراف بين P1 و P2',
+    'راجع جودة بيانات المشروع الحالي والشذوذ الإحصائي',
+    'ما هي شروط دقة التحويل للمرجع الإقليمي Ain el Abd 1970؟',
   ];
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,7 +86,19 @@ export function AIAssistant({ projectData }: { projectData?: any }) {
     setIsLoading(true);
 
     try {
-      const aiResponse = await callGeminiAPI(userMessage, activeProject, imageBase64 || undefined);
+      const fullProjectContext = {
+        ...activeProject,
+        pointCount: points.length,
+        points: points.map((p) => ({
+          pointNumber: p.pointNumber,
+          easting: p.easting,
+          northing: p.northing,
+          elevation: p.elevation,
+          description: p.description,
+        })),
+      };
+
+      const aiResponse = await callGeminiAPI(userMessage, fullProjectContext, imageBase64 || undefined);
 
       setMessages((prev) => [
         ...prev,
@@ -117,7 +138,7 @@ export function AIAssistant({ projectData }: { projectData?: any }) {
               {msg.role === 'ai' && (
                 <div className="mb-2 flex items-center gap-2 text-xs font-bold text-fuchsia-400">
                   <Bot className="h-4 w-4" />
-                  المساعد الذكي
+                  المساعد الذكي (مدعوم بمحرك الحسابات الحتمي)
                 </div>
               )}
               {msg.image && (
@@ -140,7 +161,7 @@ export function AIAssistant({ projectData }: { projectData?: any }) {
                 <div className="h-2 w-2 animate-bounce rounded-full bg-fuchsia-400" />
                 <div className="h-2 w-2 animate-bounce rounded-full bg-fuchsia-400 [animation-delay:0.2s]" />
                 <div className="h-2 w-2 animate-bounce rounded-full bg-fuchsia-400 [animation-delay:0.4s]" />
-                <span className="text-xs text-slate-400 mr-2">جاري التحليل وتوليد الإجابة...</span>
+                <span className="text-xs text-slate-400 mr-2">جاري التحليل والمطابقة الحسابية...</span>
               </div>
             </div>
           </div>
@@ -203,8 +224,8 @@ export function AIAssistant({ projectData }: { projectData?: any }) {
             onKeyDown={(e) => {
               if (e.key === 'Enter') void handleSendMessage();
             }}
-            placeholder="اكتب استفسارك المساحي أو ارفق صورة مخطط..."
-            className="h-11 flex-1 rounded-xl border border-slate-750 bg-slate-900 px-4 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/20"
+            placeholder="اكتب استفسارك أو اطلب حساب مسافة وانحراف بين نقطتين (P1, P2)..."
+            className="h-11 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-4 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-fuchsia-500"
           />
 
           <button
@@ -221,4 +242,3 @@ export function AIAssistant({ projectData }: { projectData?: any }) {
 }
 
 export default AIAssistant;
-

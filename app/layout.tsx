@@ -15,19 +15,13 @@ export const metadata: Metadata = {
   description:
     'تطبيق مساحي ذكي لإدارة المشاريع، تحويل الإحداثيات، حساب المساحات، والتحليل بالذكاء الاصطناعي.',
   applicationName: 'SurveyPro AI',
+  themeColor: '#0F172A',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'SurveyPro AI',
   },
-};
-
-export const viewport = {
-  themeColor: '#0F172A',
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
 };
 
 export default function RootLayout({
