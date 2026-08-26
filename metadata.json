@@ -1,0 +1,10 @@
+{
+  "name": "SurveyPro AI",
+  "description": "نظام المساحة الذكي لإدارة المشاريع وتحويل الإحداثيات وحساب المساحات والتحليل بالذكاء الاصطناعي",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
