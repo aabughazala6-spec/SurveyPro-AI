@@ -11,8 +11,11 @@ export type MapInteractionMode =
   | 'measure_area'
   | 'add_point';
 
+export type SupportedLanguage = 'ar' | 'en';
+
 type AppState = {
   isOnline: boolean;
+  language: SupportedLanguage;
   currentProjectId: string;
   currentProject: ProjectRecord;
   activeCrs: string;
@@ -21,6 +24,7 @@ type AppState = {
   focusedPointId: string | null;
   mapMode: MapInteractionMode;
   setOnline: (isOnline: boolean) => void;
+  setLanguage: (language: SupportedLanguage) => void;
   setCurrentProject: (project: ProjectRecord) => void;
   setCurrentProjectId: (id: string) => void;
   setActiveCrs: (crs: string) => void;
@@ -36,6 +40,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       isOnline: true,
+      language: 'ar',
       currentProjectId: DEFAULT_PROJECT.id,
       currentProject: DEFAULT_PROJECT,
       activeCrs: DEFAULT_PROJECT.crsCode || 'EPSG:32638',
@@ -44,6 +49,7 @@ export const useAppStore = create<AppState>()(
       focusedPointId: null,
       mapMode: 'view',
       setOnline: (isOnline: boolean) => set({ isOnline }),
+      setLanguage: (language: SupportedLanguage) => set({ language }),
       setCurrentProject: (project: ProjectRecord) =>
         set({
           currentProject: project,
@@ -80,6 +86,7 @@ export const useAppStore = create<AppState>()(
     {
       name: 'surveypro-app-storage',
       partialize: (state) => ({
+        language: state.language,
         currentProjectId: state.currentProjectId,
         activeCrs: state.activeCrs,
       }),

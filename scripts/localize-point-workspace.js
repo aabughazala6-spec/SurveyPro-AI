@@ -1,4 +1,6 @@
-'use client';
+const fs = require('fs');
+
+const componentCode = `'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -448,12 +450,12 @@ export function VirtualizedPointWorkspace() {
         p.description || '',
         p.layer || 'SURVEY_POINTS',
         p.flagged ? 'YES' : 'NO',
-      ].map((val) => `"${String(val).replaceAll('"', '""')}"`)
+      ].map((val) => \`"\${String(val).replaceAll('"', '""')}"\`)
     );
-    const csv = '\ufeff' + [header, ...rows].map((r) => r.join(',')).join('\n');
+    const csv = '\\ufeff' + [header, ...rows].map((r) => r.join(',')).join('\\n');
     downloadFile(
       csv,
-      `SurveyPro-${currentProject?.name?.replace(/\s+/g, '_') || 'Project'}-Points.csv`,
+      \`SurveyPro-\${currentProject?.name?.replace(/\\s+/g, '_') || 'Project'}-Points.csv\`,
       'text/csv;charset=utf-8;'
     );
     toast.success(t('pointsWorkspace.exportCsvSuccess', { count: targetPoints.length }));
@@ -471,7 +473,7 @@ export function VirtualizedPointWorkspace() {
     const dxf = generateDXF(currentProject?.name || 'Survey Project', targetPoints);
     downloadFile(
       dxf,
-      `SurveyPro-${currentProject?.name?.replace(/\s+/g, '_') || 'Project'}.dxf`,
+      \`SurveyPro-\${currentProject?.name?.replace(/\\s+/g, '_') || 'Project'}.dxf\`,
       'application/dxf;charset=utf-8;'
     );
     toast.success(t('pointsWorkspace.exportDxfSuccess', { count: targetPoints.length }));
@@ -599,7 +601,7 @@ export function VirtualizedPointWorkspace() {
         <div className="border-b border-slate-850 bg-slate-950/40 p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="relative min-w-[260px] flex-1">
-              <Search className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500`} />
+              <Search className={\`absolute \${isRtl ? 'right-3' : 'left-3'} top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500\`} />
               <input
                 type="text"
                 value={searchQuery}
@@ -608,7 +610,7 @@ export function VirtualizedPointWorkspace() {
                   setCurrentPage(1);
                 }}
                 placeholder={t('pointsWorkspace.searchPlaceholder')}
-                className={`h-9 w-full rounded-xl border border-slate-800 bg-slate-900 ${isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'} text-xs text-white placeholder:text-slate-600 outline-none focus:border-sky-500`}
+                className={\`h-9 w-full rounded-xl border border-slate-800 bg-slate-900 \${isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'} text-xs text-white placeholder:text-slate-600 outline-none focus:border-sky-500\`}
               />
             </div>
 
@@ -649,11 +651,11 @@ export function VirtualizedPointWorkspace() {
               {/* Advanced Filter Toggle */}
               <button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className={`flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors ${
+                className={\`flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors \${
                   showAdvancedFilters || minElevation || maxElevation
                     ? 'border-sky-500/50 bg-sky-500/10 text-sky-400'
                     : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
-                }`}
+                }\`}
               >
                 <Filter className="h-3.5 w-3.5" />
                 {t('pointsWorkspace.advancedFilter')}
@@ -777,7 +779,7 @@ export function VirtualizedPointWorkspace() {
         {/* HIGH-PERFORMANCE TABLE */}
         {filteredAndSortedPoints.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className={`w-full min-w-[850px] ${isRtl ? 'text-right' : 'text-left'} text-xs`}>
+            <table className={\`w-full min-w-[850px] \${isRtl ? 'text-right' : 'text-left'} text-xs\`}>
               <thead className="bg-slate-950/70 text-slate-400 select-none">
                 <tr>
                   <th className="w-12 px-4 py-3.5 text-center">
@@ -859,13 +861,13 @@ export function VirtualizedPointWorkspace() {
                   return (
                     <tr
                       key={point.id}
-                      className={`transition-colors ${
+                      className={\`transition-colors \${
                         isSelected
                           ? 'bg-sky-950/30 hover:bg-sky-950/40'
                           : point.flagged
                           ? 'bg-amber-950/15 hover:bg-amber-950/25'
                           : 'hover:bg-slate-850/50'
-                      }`}
+                      }\`}
                     >
                       {/* Checkbox */}
                       <td className="px-4 py-3 text-center">
@@ -1090,7 +1092,7 @@ export function VirtualizedPointWorkspace() {
       {/* ADD POINT MODAL */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <div className={`w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7 ${isRtl ? 'text-right' : 'text-left'}`}>
+          <div className={\`w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7 \${isRtl ? 'text-right' : 'text-left'}\`}>
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h3 className="text-base font-bold text-white">{t('pointsWorkspace.addPointTitle')}</h3>
@@ -1227,7 +1229,7 @@ export function VirtualizedPointWorkspace() {
       {/* EDIT POINT MODAL */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <div className={`w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7 ${isRtl ? 'text-right' : 'text-left'}`}>
+          <div className={\`w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7 \${isRtl ? 'text-right' : 'text-left'}\`}>
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h3 className="text-base font-bold text-white">{t('pointsWorkspace.editPointTitle')} P{editingPoint?.pointNumber}</h3>
@@ -1360,7 +1362,7 @@ export function VirtualizedPointWorkspace() {
       {/* BULK ACTION MODALS */}
       {bulkActionType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <div className={`w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-6 ${isRtl ? 'text-right' : 'text-left'}`}>
+          <div className={\`w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-6 \${isRtl ? 'text-right' : 'text-left'}\`}>
             {bulkActionType === 'DELETE' && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 text-rose-400">
@@ -1535,3 +1537,7 @@ export function VirtualizedPointWorkspace() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('./components/survey/virtualized-point-workspace.tsx', componentCode);
+console.log('Successfully wrote fully localized virtualized-point-workspace.tsx');

@@ -1,4 +1,6 @@
-'use client';
+const fs = require('fs');
+
+const code = `'use client';
 
 import { useState } from 'react';
 import {
@@ -159,22 +161,22 @@ export function CoordinateForm() {
       <div className="flex gap-2">
         <button
           onClick={() => setMode('single')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+          className={\`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all \${
             mode === 'single'
               ? 'bg-sky-500 text-white shadow-lg shadow-sky-950/40'
               : 'border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-white'
-          }`}
+          }\`}
         >
           <Crosshair className="h-4 w-4" />
           {t('crsSafety.singlePointMode')}
         </button>
         <button
           onClick={() => setMode('batch')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+          className={\`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all \${
             mode === 'batch'
               ? 'bg-sky-500 text-white shadow-lg shadow-sky-950/40'
               : 'border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-white'
-          }`}
+          }\`}
         >
           <RefreshCw className="h-4 w-4" />
           {t('crsSafety.batchPointsMode')}
@@ -299,7 +301,7 @@ export function CoordinateForm() {
                 disabled={isLocating}
                 className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
               >
-                <LocateFixed className={`h-4 w-4 ${isLocating ? 'animate-spin' : ''}`} />
+                <LocateFixed className={\`h-4 w-4 \${isLocating ? 'animate-spin' : ''}\`} />
                 {isLocating ? t('crsSafety.locatingProgress') : t('crsSafety.currentGpsLocation')}
               </button>
             </div>
@@ -478,3 +480,7 @@ export function CoordinateForm() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('./components/survey/coordinate-form.tsx', code);
+console.log('Successfully updated coordinate-form.tsx');

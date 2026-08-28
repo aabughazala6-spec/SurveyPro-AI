@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Cairo } from 'next/font/google';
 import { AppShell } from '@/components/layout/app-shell';
 import { Toaster } from '@/components/ui/sonner';
+import { I18nProvider } from '@/lib/i18n';
 
 const cairo = Cairo({
   subsets: ['arabic', 'latin'],
@@ -11,9 +12,9 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: 'SurveyPro AI — نظام المساحة الذكي',
+  title: 'SurveyPro AI — Smart Surveying & Geomatics',
   description:
-    'تطبيق مساحي ذكي لإدارة المشاريع، تحويل الإحداثيات، حساب المساحات، والتحليل بالذكاء الاصطناعي.',
+    'Smart Surveying & Geomatics application for field data processing, coordinate transformations, COGO, and QA/QC.',
   applicationName: 'SurveyPro AI',
   themeColor: '#0F172A',
   manifest: '/manifest.json',
@@ -32,8 +33,10 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={`dark ${cairo.variable}`} suppressHydrationWarning>
       <body className="font-cairo bg-slate-950 text-slate-100 antialiased min-h-screen">
-        <AppShell>{children}</AppShell>
-        <Toaster position="bottom-left" richColors />
+        <I18nProvider>
+          <AppShell>{children}</AppShell>
+          <Toaster position="bottom-left" richColors />
+        </I18nProvider>
       </body>
     </html>
   );

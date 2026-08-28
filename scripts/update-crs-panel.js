@@ -1,4 +1,6 @@
-'use client';
+const fs = require('fs');
+
+const code = `'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -144,20 +146,20 @@ export function CrsSafetyPanel({
     <div className={className}>
       {/* CRS SUMMARY BANNER */}
       <div
-        className={`rounded-2xl border p-4 sm:p-5 transition-all ${
+        className={\`rounded-2xl border p-4 sm:p-5 transition-all \${
           isCurrentAuthoritative
             ? 'border-emerald-500/20 bg-slate-900/90 shadow-lg shadow-emerald-950/20'
             : 'border-amber-500/30 bg-slate-900/95 shadow-lg shadow-amber-950/20'
-        }`}
+        }\`}
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3.5">
             <div
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+              className={\`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl \${
                 isCurrentAuthoritative
                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                   : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-              }`}
+              }\`}
             >
               {isCurrentAuthoritative ? (
                 <ShieldCheck className="h-6 w-6" />
@@ -222,7 +224,7 @@ export function CrsSafetyPanel({
       {/* CRS MIGRATION & TRANSFORMATION MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className={`w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7 ${isRtl ? 'text-right' : 'text-left'} my-8 max-h-[90vh] overflow-y-auto`}>
+          <div className={\`w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7 \${isRtl ? 'text-right' : 'text-left'} my-8 max-h-[90vh] overflow-y-auto\`}>
             {/* Header */}
             <div className="mb-6 flex items-start justify-between border-b border-slate-800 pb-4">
               <div>
@@ -310,11 +312,11 @@ export function CrsSafetyPanel({
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label
-                    className={`flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    className={\`flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all \${
                       transformMode === 'TRANSFORM_COORDINATES'
                         ? 'border-sky-500 bg-sky-500/10 text-white'
                         : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
-                    }`}
+                    }\`}
                   >
                     <div className="flex items-center gap-2 font-bold text-xs mb-1 text-sky-300">
                       <input
@@ -333,11 +335,11 @@ export function CrsSafetyPanel({
                   </label>
 
                   <label
-                    className={`flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    className={\`flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all \${
                       transformMode === 'ASSIGN_METADATA_ONLY'
                         ? 'border-emerald-500 bg-emerald-500/10 text-white'
                         : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
-                    }`}
+                    }\`}
                   >
                     <div className="flex items-center gap-2 font-bold text-xs mb-1 text-emerald-300">
                       <input
@@ -369,7 +371,7 @@ export function CrsSafetyPanel({
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className={`w-full ${isRtl ? 'text-right' : 'text-left'} text-[11px]`}>
+                    <table className={\`w-full \${isRtl ? 'text-right' : 'text-left'} text-[11px]\`}>
                       <thead>
                         <tr className="border-b border-slate-800 text-slate-400">
                           <th className="py-1 px-2">{t('pointsWorkspace.thPoint')}</th>
@@ -414,7 +416,7 @@ export function CrsSafetyPanel({
                   disabled={isProcessing}
                   className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-sky-500 text-xs font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-sky-400 disabled:opacity-50 transition-all"
                 >
-                  <RefreshCw className={`h-4 w-4 ${isProcessing ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={\`h-4 w-4 \${isProcessing ? 'animate-spin' : ''}\`} />
                   {isProcessing ? t('crsSafety.applyingTransform') : t('crsSafety.confirmAndSaveCrs')}
                 </button>
                 <button
@@ -433,3 +435,7 @@ export function CrsSafetyPanel({
     </div>
   );
 }
+`;
+
+fs.writeFileSync('./components/survey/crs-safety-panel.tsx', code);
+console.log('Successfully updated crs-safety-panel.tsx');

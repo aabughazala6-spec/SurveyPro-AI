@@ -1,4 +1,6 @@
-'use client';
+const fs = require('fs');
+
+const code = `'use client';
 
 import { useMemo, useState } from 'react';
 import { ArrowLeftRight, Ruler } from 'lucide-react';
@@ -78,11 +80,11 @@ export function UnitConverter() {
           <button
             key={cat}
             onClick={() => switchCategory(cat)}
-            className={`flex-1 rounded-lg px-3 py-3 text-xs font-semibold transition-all ${
+            className={\`flex-1 rounded-lg px-3 py-3 text-xs font-semibold transition-all \${
               category === cat
                 ? 'bg-sky-500 text-white shadow-lg shadow-sky-950/30'
                 : 'text-slate-500 hover:text-slate-200'
-            }`}
+            }\`}
           >
             {categoryLabels[cat]}
           </button>
@@ -140,7 +142,7 @@ export function UnitConverter() {
             </select>
             <div className="mt-3 flex h-12 items-center rounded-xl border border-sky-500/20 bg-sky-500/5 px-4">
               <span dir="ltr" className="text-lg font-bold text-sky-300">
-                {Number.isFinite(result) ? result.toFixed(6).replace(/\.?0+$/, '') : '—'}
+                {Number.isFinite(result) ? result.toFixed(6).replace(/\\.?0+$/, '') : '—'}
               </span>
             </div>
           </div>
@@ -160,7 +162,7 @@ export function UnitConverter() {
           <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-center text-sm text-slate-400">
             <span className="font-bold text-white" dir="ltr">{value}</span>{' '}
             {units.find((u) => u.key === fromUnit)?.label} ={' '}
-            <span className="font-bold text-sky-400" dir="ltr">{result.toFixed(6).replace(/\.?0+$/, '')}</span>{' '}
+            <span className="font-bold text-sky-400" dir="ltr">{result.toFixed(6).replace(/\\.?0+$/, '')}</span>{' '}
             {units.find((u) => u.key === toUnit)?.label}
           </div>
         )}
@@ -168,3 +170,7 @@ export function UnitConverter() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('./components/survey/unit-converter.tsx', code);
+console.log('Successfully updated unit-converter.tsx');

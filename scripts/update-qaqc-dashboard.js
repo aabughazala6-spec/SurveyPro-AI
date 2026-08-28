@@ -1,4 +1,6 @@
-'use client';
+const fs = require('fs');
+
+const code = `'use client';
 
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -47,90 +49,90 @@ export function QAQCDashboard() {
   const exportReport = () => {
     const isAr = language === 'ar';
     const text = isAr
-      ? `# SurveyPro AI - تقرير فحص ومطابقة الجودة المساحية (QA/QC Audit Report)
-تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')} - ${new Date().toLocaleTimeString('ar-SA')}
-اسم المشروع: ${currentProject?.name}
-معرف المشروع: ${currentProject?.id}
-إجمالي نقاط الرفع المفحوصة: ${report.totalPoints} نقطة
+      ? \`# SurveyPro AI - تقرير فحص ومطابقة الجودة المساحية (QA/QC Audit Report)
+تاريخ التقرير: \${new Date().toLocaleDateString('ar-SA')} - \${new Date().toLocaleTimeString('ar-SA')}
+اسم المشروع: \${currentProject?.name}
+معرف المشروع: \${currentProject?.id}
+إجمالي نقاط الرفع المفحوصة: \${report.totalPoints} نقطة
 
 --------------------------------------------------
 ملخص التقييم الهندسي:
-- درجة الجودة الكلية: ${report.overallScore !== null ? `${report.overallScore} / 100` : 'غير مُقيّم (لا توجد بيانات نقاط)'}
-- حالة المشروع: ${report.status}
+- درجة الجودة الكلية: \${report.overallScore !== null ? \`\${report.overallScore} / 100\` : 'غير مُقيّم (لا توجد بيانات نقاط)'}
+- حالة المشروع: \${report.status}
 - خوارزمية كشف الشذوذ: Median Absolute Deviation (MAD Hybrid Engine)
-- عدد الأخطاء الحرجة (Errors): ${report.errorCount}
-- عدد التنبيهات (Warnings): ${report.warningCount}
-- الفحوصات المطابقة (Passed): ${report.passCount}
+- عدد الأخطاء الحرجة (Errors): \${report.errorCount}
+- عدد التنبيهات (Warnings): \${report.warningCount}
+- الفحوصات المطابقة (Passed): \${report.passCount}
 
 --------------------------------------------------
 الإحصائيات الجيوديسية والمناسيب:
-- نطاق الإحداثي الشرقي (Easting): ${report.stats.minEasting.toFixed(3)} إلى ${report.stats.maxEasting.toFixed(3)}
-- نطاق الإحداثي الشمالي (Northing): ${report.stats.minNorthing.toFixed(3)} إلى ${report.stats.maxNorthing.toFixed(3)}
-- متوسط المناسيب (Mean Elevation): ${report.stats.meanElevation.toFixed(3)} م
-- وسيط المناسيب (Median Elevation): ${report.stats.medianElevation.toFixed(3)} م
-- تشتت المناسيب (MAD): ${report.stats.elevationMAD.toFixed(3)} م
-- الانحراف المعياري للمناسيب (Std Dev): ${report.stats.elevationStdDev.toFixed(3)} م
-- أدنى منسوب: ${report.stats.minElevation.toFixed(3)} م | أعلى منسوب: ${report.stats.maxElevation.toFixed(3)} م
+- نطاق الإحداثي الشرقي (Easting): \${report.stats.minEasting.toFixed(3)} إلى \${report.stats.maxEasting.toFixed(3)}
+- نطاق الإحداثي الشمالي (Northing): \${report.stats.minNorthing.toFixed(3)} إلى \${report.stats.maxNorthing.toFixed(3)}
+- متوسط المناسيب (Mean Elevation): \${report.stats.meanElevation.toFixed(3)} م
+- وسيط المناسيب (Median Elevation): \${report.stats.medianElevation.toFixed(3)} م
+- تشتت المناسيب (MAD): \${report.stats.elevationMAD.toFixed(3)} م
+- الانحراف المعياري للمناسيب (Std Dev): \${report.stats.elevationStdDev.toFixed(3)} م
+- أدنى منسوب: \${report.stats.minElevation.toFixed(3)} م | أعلى منسوب: \${report.stats.maxElevation.toFixed(3)} م
 
 --------------------------------------------------
 قائمة الملاحظات والمطابقات الهندسية:
-${report.issues
+\${report.issues
   .map(
-    (issue, idx) => `
-[${idx + 1}] ${issue.severity === 'ERROR' ? '❌ خطأ حرج' : issue.severity === 'WARNING' ? '⚠️ تنبيه' : '✅ فحص مطابق'} - ${issue.titleAr} (${issue.titleEn})
-- التفاصيل: ${issue.descriptionAr}
-- النقاط المعنية: ${issue.affectedPointNumbers.length ? issue.affectedPointNumbers.map((n) => `P${n}`).join(', ') : 'لا يوجد'}
-- التوصية الهندسية: ${issue.recommendationAr}
-`
+    (issue, idx) => \`
+[\${idx + 1}] \${issue.severity === 'ERROR' ? '❌ خطأ حرج' : issue.severity === 'WARNING' ? '⚠️ تنبيه' : '✅ فحص مطابق'} - \${issue.titleAr} (\${issue.titleEn})
+- التفاصيل: \${issue.descriptionAr}
+- النقاط المعنية: \${issue.affectedPointNumbers.length ? issue.affectedPointNumbers.map((n) => \`P\${n}\`).join(', ') : 'لا يوجد'}
+- التوصية الهندسية: \${issue.recommendationAr}
+\`
   )
-  .join('\n')}
+  .join('\\n')}
 --------------------------------------------------
 تم إنشاؤه تلقائياً بواسطة محرك SurveyPro AI لضبط الجودة المساحية.
-`
-      : `# SurveyPro AI - QA/QC Audit & Quality Verification Report
-Date: ${new Date().toISOString()}
-Project Name: ${currentProject?.name}
-Project ID: ${currentProject?.id}
-Total Survey Points: ${report.totalPoints}
+\`
+      : \`# SurveyPro AI - QA/QC Audit & Quality Verification Report
+Date: \${new Date().toISOString()}
+Project Name: \${currentProject?.name}
+Project ID: \${currentProject?.id}
+Total Survey Points: \${report.totalPoints}
 
 --------------------------------------------------
 Engineering Evaluation Summary:
-- Overall Quality Score: ${report.overallScore !== null ? `${report.overallScore} / 100` : 'Not Evaluated (No points)'}
-- Project Status: ${report.status}
+- Overall Quality Score: \${report.overallScore !== null ? \`\${report.overallScore} / 100\` : 'Not Evaluated (No points)'}
+- Project Status: \${report.status}
 - Outlier Algorithm: Median Absolute Deviation (MAD Hybrid Engine)
-- Critical Errors: ${report.errorCount}
-- Warnings: ${report.warningCount}
-- Passed Checks: ${report.passCount}
+- Critical Errors: \${report.errorCount}
+- Warnings: \${report.warningCount}
+- Passed Checks: \${report.passCount}
 
 --------------------------------------------------
 Geodetic & Elevation Statistics:
-- Easting Range: ${report.stats.minEasting.toFixed(3)} to ${report.stats.maxEasting.toFixed(3)}
-- Northing Range: ${report.stats.minNorthing.toFixed(3)} to ${report.stats.maxNorthing.toFixed(3)}
-- Mean Elevation: ${report.stats.meanElevation.toFixed(3)} m
-- Median Elevation: ${report.stats.medianElevation.toFixed(3)} m
-- Elevation Dispersion (MAD): ${report.stats.elevationMAD.toFixed(3)} m
-- Standard Deviation: ${report.stats.elevationStdDev.toFixed(3)} m
-- Min Elevation: ${report.stats.minElevation.toFixed(3)} m | Max Elevation: ${report.stats.maxElevation.toFixed(3)} m
+- Easting Range: \${report.stats.minEasting.toFixed(3)} to \${report.stats.maxEasting.toFixed(3)}
+- Northing Range: \${report.stats.minNorthing.toFixed(3)} to \${report.stats.maxNorthing.toFixed(3)}
+- Mean Elevation: \${report.stats.meanElevation.toFixed(3)} m
+- Median Elevation: \${report.stats.medianElevation.toFixed(3)} m
+- Elevation Dispersion (MAD): \${report.stats.elevationMAD.toFixed(3)} m
+- Standard Deviation: \${report.stats.elevationStdDev.toFixed(3)} m
+- Min Elevation: \${report.stats.minElevation.toFixed(3)} m | Max Elevation: \${report.stats.maxElevation.toFixed(3)} m
 
 --------------------------------------------------
 Audit Issues & Findings:
-${report.issues
+\${report.issues
   .map(
-    (issue, idx) => `
-[${idx + 1}] ${issue.severity === 'ERROR' ? '[CRITICAL ERROR]' : issue.severity === 'WARNING' ? '[WARNING]' : '[PASSED]'} - ${issue.titleEn}
-- Details: ${issue.descriptionEn || issue.descriptionAr}
-- Affected Points: ${issue.affectedPointNumbers.length ? issue.affectedPointNumbers.map((n) => `P${n}`).join(', ') : 'None'}
-- Recommendation: ${issue.recommendationEn || issue.recommendationAr}
-`
+    (issue, idx) => \`
+[\${idx + 1}] \${issue.severity === 'ERROR' ? '[CRITICAL ERROR]' : issue.severity === 'WARNING' ? '[WARNING]' : '[PASSED]'} - \${issue.titleEn}
+- Details: \${issue.descriptionEn || issue.descriptionAr}
+- Affected Points: \${issue.affectedPointNumbers.length ? issue.affectedPointNumbers.map((n) => \`P\${n}\`).join(', ') : 'None'}
+- Recommendation: \${issue.recommendationEn || issue.recommendationAr}
+\`
   )
-  .join('\n')}
+  .join('\\n')}
 --------------------------------------------------
 Automatically generated by SurveyPro AI QA/QC Engine.
-`;
+\`;
 
     downloadFile(
       text,
-      `SurveyPro-QAQC-Report-${(currentProject?.name || 'Project').replace(/\s+/g, '_')}.txt`,
+      \`SurveyPro-QAQC-Report-\${(currentProject?.name || 'Project').replace(/\\s+/g, '_')}.txt\`,
       'text/plain;charset=utf-8;'
     );
     toast.success(t('qaqc.exportSuccess'));
@@ -158,7 +160,7 @@ Automatically generated by SurveyPro AI QA/QC Engine.
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-4">
             <div
-              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
+              className={\`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl \${
                 report.status === 'EXCELLENT'
                   ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                   : report.status === 'GOOD'
@@ -168,7 +170,7 @@ Automatically generated by SurveyPro AI QA/QC Engine.
                   : report.status === 'NO_DATA'
                   ? 'bg-slate-800/60 text-slate-400 border border-slate-700'
                   : 'bg-red-500/15 text-red-400 border border-red-500/30'
-              }`}
+              }\`}
             >
               {report.status === 'CRITICAL_ERRORS' ? (
                 <ShieldAlert className="h-7 w-7" />
@@ -182,7 +184,7 @@ Automatically generated by SurveyPro AI QA/QC Engine.
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold text-white">{t('qaqc.title')}</h2>
                 <span
-                  className={`rounded-full px-3 py-1 text-xs font-bold ${
+                  className={\`rounded-full px-3 py-1 text-xs font-bold \${
                     report.status === 'EXCELLENT'
                       ? 'bg-emerald-500/20 text-emerald-300'
                       : report.status === 'GOOD'
@@ -192,7 +194,7 @@ Automatically generated by SurveyPro AI QA/QC Engine.
                       : report.status === 'NO_DATA'
                       ? 'bg-slate-800 text-slate-300 border border-slate-700'
                       : 'bg-red-500/20 text-red-300'
-                  }`}
+                  }\`}
                 >
                   {getStatusLabel(report.status)}
                 </span>
@@ -229,13 +231,13 @@ Automatically generated by SurveyPro AI QA/QC Engine.
               {report.overallScore !== null ? (
                 <>
                   <span
-                    className={`text-2xl font-bold ${
+                    className={\`text-2xl font-bold \${
                       report.overallScore >= 85
                         ? 'text-emerald-400'
                         : report.overallScore >= 65
                         ? 'text-amber-400'
                         : 'text-red-400'
-                    }`}
+                    }\`}
                   >
                     {report.overallScore}%
                   </span>
@@ -313,41 +315,41 @@ Automatically generated by SurveyPro AI QA/QC Engine.
           <div className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950/80 p-1">
             <button
               onClick={() => setFilterSeverity('ALL')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={\`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all \${
                 filterSeverity === 'ALL'
                   ? 'bg-slate-800 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
-              }`}
+              }\`}
             >
               {t('qaqc.filterAllBtn', { count: report.issues.length })}
             </button>
             <button
               onClick={() => setFilterSeverity('ERROR')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={\`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all \${
                 filterSeverity === 'ERROR'
                   ? 'bg-red-500/20 text-red-300 shadow-sm'
                   : 'text-slate-400 hover:text-red-300'
-              }`}
+              }\`}
             >
               {t('qaqc.filterErrorBtn', { count: report.errorCount })}
             </button>
             <button
               onClick={() => setFilterSeverity('WARNING')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={\`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all \${
                 filterSeverity === 'WARNING'
                   ? 'bg-amber-500/20 text-amber-300 shadow-sm'
                   : 'text-slate-400 hover:text-amber-300'
-              }`}
+              }\`}
             >
               {t('qaqc.filterWarningBtn', { count: report.warningCount })}
             </button>
             <button
               onClick={() => setFilterSeverity('PASS')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={\`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all \${
                 filterSeverity === 'PASS'
                   ? 'bg-emerald-500/20 text-emerald-300 shadow-sm'
                   : 'text-slate-400 hover:text-emerald-300'
-              }`}
+              }\`}
             >
               {t('qaqc.filterPassBtn', { count: report.passCount })}
             </button>
@@ -370,23 +372,23 @@ Automatically generated by SurveyPro AI QA/QC Engine.
               return (
                 <div
                   key={issue.id}
-                  className={`rounded-2xl border p-5 transition-all ${
+                  className={\`rounded-2xl border p-5 transition-all \${
                     issue.severity === 'ERROR'
                       ? 'border-red-500/30 bg-red-950/15'
                       : issue.severity === 'WARNING'
                       ? 'border-amber-500/30 bg-amber-950/15'
                       : 'border-emerald-500/30 bg-emerald-950/15'
-                  }`}
+                  }\`}
                 >
                   <div className="flex items-start gap-3.5">
                     <div
-                      className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                      className={\`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg \${
                         issue.severity === 'ERROR'
                           ? 'bg-red-500/20 text-red-400'
                           : issue.severity === 'WARNING'
                           ? 'bg-amber-500/20 text-amber-400'
                           : 'bg-emerald-500/20 text-emerald-400'
-                      }`}
+                      }\`}
                     >
                       {issue.severity === 'ERROR' ? (
                         <AlertCircle className="h-5 w-5" />
@@ -437,3 +439,7 @@ Automatically generated by SurveyPro AI QA/QC Engine.
     </div>
   );
 }
+`;
+
+fs.writeFileSync('./components/survey/qa-qc-dashboard.tsx', code);
+console.log('Successfully updated qa-qc-dashboard.tsx');
