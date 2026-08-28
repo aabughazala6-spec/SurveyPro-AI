@@ -2,50 +2,54 @@
 
 import { useMemo, useState } from 'react';
 import { ArrowLeftRight, Ruler } from 'lucide-react';
-import { useTranslation, engFormat } from '@/lib/i18n';
 
 type Category = 'length' | 'area' | 'volume';
 
+type Unit = {
+  key: string;
+  label: string;
+  factor: number;
+};
+
+const categories: Record<Category, Unit[]> = {
+  length: [
+    { key: 'm', label: 'متر (m)', factor: 1 },
+    { key: 'km', label: 'كيلومتر (km)', factor: 1000 },
+    { key: 'cm', label: 'سنتيمتر (cm)', factor: 0.01 },
+    { key: 'mm', label: 'مليمتر (mm)', factor: 0.001 },
+    { key: 'inch', label: 'إنش (in)', factor: 0.0254 },
+    { key: 'foot', label: 'قدم (ft)', factor: 0.3048 },
+    { key: 'yard', label: 'ياردة (yd)', factor: 0.9144 },
+    { key: 'mile', label: 'ميل (mi)', factor: 1609.344 },
+  ],
+  area: [
+    { key: 'm2', label: 'متر مربع (m²)', factor: 1 },
+    { key: 'km2', label: 'كيلومتر مربع (km²)', factor: 1_000_000 },
+    { key: 'hectare', label: 'هكتار (ha)', factor: 10_000 },
+    { key: 'feddan', label: 'فدان (feddan)', factor: 4200.83 },
+    { key: 'acre', label: 'أكر (acre)', factor: 4046.8564224 },
+    { key: 'sqft', label: 'قدم مربع (ft²)', factor: 0.09290304 },
+  ],
+  volume: [
+    { key: 'm3', label: 'متر مكعب (m³)', factor: 1 },
+    { key: 'liter', label: 'لتر (L)', factor: 0.001 },
+    { key: 'gallon', label: 'جالون أمريكي (gal)', factor: 0.003785411784 },
+    { key: 'cm3', label: 'سنتيمتر مكعب (cm³)', factor: 0.000001 },
+    { key: 'cft', label: 'قدم مكعب (ft³)', factor: 0.028316846592 },
+  ],
+};
+
+const categoryLabels: Record<Category, string> = {
+  length: 'الأطوال',
+  area: 'المساحات',
+  volume: 'الأحجام',
+};
+
 export function UnitConverter() {
-  const { t, isRtl } = useTranslation();
   const [category, setCategory] = useState<Category>('length');
   const [fromUnit, setFromUnit] = useState('m');
   const [toUnit, setToUnit] = useState('km');
   const [value, setValue] = useState('1');
-
-  const categories = useMemo(() => ({
-    length: [
-      { key: 'm', label: t('units.unitM'), factor: 1 },
-      { key: 'km', label: t('units.unitKm'), factor: 1000 },
-      { key: 'cm', label: isRtl ? 'سنتيمتر (cm)' : 'Centimeter (cm)', factor: 0.01 },
-      { key: 'mm', label: isRtl ? 'مليمتر (mm)' : 'Millimeter (mm)', factor: 0.001 },
-      { key: 'inch', label: t('units.unitIn'), factor: 0.0254 },
-      { key: 'foot', label: t('units.unitFt'), factor: 0.3048 },
-      { key: 'yard', label: t('units.unitYd'), factor: 0.9144 },
-      { key: 'mile', label: isRtl ? 'ميل (mi)' : 'Mile (mi)', factor: 1609.344 },
-    ],
-    area: [
-      { key: 'm2', label: t('units.unitSqm'), factor: 1 },
-      { key: 'km2', label: t('units.unitSqKm'), factor: 1_000_000 },
-      { key: 'hectare', label: t('units.unitHa'), factor: 10_000 },
-      { key: 'feddan', label: t('units.unitFeddan'), factor: 4200.83 },
-      { key: 'acre', label: t('units.unitAcre'), factor: 4046.8564224 },
-      { key: 'sqft', label: t('units.unitSqFt'), factor: 0.09290304 },
-    ],
-    volume: [
-      { key: 'm3', label: t('units.unitCum'), factor: 1 },
-      { key: 'liter', label: t('units.unitLiter'), factor: 0.001 },
-      { key: 'gallon', label: t('units.unitGallon'), factor: 0.003785411784 },
-      { key: 'cm3', label: isRtl ? 'سنتيمتر مكعب (cm³)' : 'Cubic centimeter (cm³)', factor: 0.000001 },
-      { key: 'cft', label: t('units.unitCuFt'), factor: 0.028316846592 },
-    ],
-  }), [t, isRtl]);
-
-  const categoryLabels: Record<Category, string> = useMemo(() => ({
-    length: t('units.tabLength'),
-    area: t('units.tabArea'),
-    volume: t('units.tabVolume'),
-  }), [t]);
 
   const units = categories[category];
 
@@ -95,14 +99,14 @@ export function UnitConverter() {
             <Ruler className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">{t('units.title')}</h2>
-            <p className="mt-1 text-xs text-slate-500">{categoryLabels[category]} — {t('units.subtitle')}</p>
+            <h2 className="text-lg font-bold text-white">محول الوحدات الشامل</h2>
+            <p className="mt-1 text-xs text-slate-500">{categoryLabels[category]} — تحويل فوري ودقيق</p>
           </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <span className="mb-2 block text-xs font-semibold text-slate-400">{t('units.fromUnit')}</span>
+            <span className="mb-2 block text-xs font-semibold text-slate-400">من</span>
             <select
               value={fromUnit}
               onChange={(e) => setFromUnit(e.target.value)}
@@ -126,7 +130,7 @@ export function UnitConverter() {
           </div>
 
           <div>
-            <span className="mb-2 block text-xs font-semibold text-slate-400">{t('units.toUnit')}</span>
+            <span className="mb-2 block text-xs font-semibold text-slate-400">إلى</span>
             <select
               value={toUnit}
               onChange={(e) => setToUnit(e.target.value)}
@@ -152,7 +156,7 @@ export function UnitConverter() {
             className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
           >
             <ArrowLeftRight className="h-3.5 w-3.5" />
-            {t('units.swapUnits')}
+            تبديل الوحدات
           </button>
         </div>
 

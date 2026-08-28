@@ -10,7 +10,6 @@ import {
   Calculator,
   ChevronDown,
   ChevronLeft,
-  ChevronRight,
   ClipboardList,
   Compass,
   Crown,
@@ -27,11 +26,31 @@ import {
 } from 'lucide-react';
 import { db, ensureDefaultProject } from '@/lib/db';
 import { useAppStore } from '@/lib/stores/app-store';
-import { useTranslation } from '@/lib/i18n';
+
+const navigation = [
+  { label: 'لوحة التحكم', href: '/', icon: Gauge },
+  { label: 'نقاط الرفع المساحي', href: '/points', icon: ClipboardList },
+  { label: 'استيراد وتصدير', href: '/import', icon: ArrowDownToLine },
+  { label: 'الحسابات الهندسية COGO', href: '/cogo', icon: Compass },
+  { label: 'تدقيق الجودة QA/QC', href: '/qa-qc', icon: ShieldCheck },
+  { label: 'الخريطة والـ GIS', href: '/map', icon: Map },
+  { label: 'الحفر والردم والكميات', href: '/volume', icon: Layers },
+  { label: 'نظم الإحداثيات CRS', href: '/converter', icon: Calculator },
+  { label: 'المساعد المساحي الذكي', href: '/assistant', icon: Bot },
+  { label: 'محول الوحدات', href: '/units', icon: Ruler },
+  { label: 'إدارة المشاريع', href: '/projects', icon: FolderKanban },
+];
+
+const mobileNavigation = [
+  { label: 'الرئيسية', href: '/', icon: Gauge },
+  { label: 'النقاط', href: '/points', icon: ClipboardList },
+  { label: 'COGO', href: '/cogo', icon: Compass },
+  { label: 'QA/QC', href: '/qa-qc', icon: ShieldCheck },
+  { label: 'المساعد', href: '/assistant', icon: Bot },
+];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { t, isRtl, dir } = useTranslation();
   const setOnline = useAppStore((state) => state.setOnline);
   const isOnline = useAppStore((state) => state.isOnline);
   const currentProjectId = useAppStore((state) => state.currentProjectId);
@@ -53,47 +72,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [setOnline]);
 
-  const navigation = [
-    { label: t('nav.dashboard'), href: '/', icon: Gauge },
-    { label: t('nav.points'), href: '/points', icon: ClipboardList },
-    { label: t('nav.importExport'), href: '/import', icon: ArrowDownToLine },
-    { label: t('nav.cogo'), href: '/cogo', icon: Compass },
-    { label: t('nav.qaqc'), href: '/qa-qc', icon: ShieldCheck },
-    { label: t('nav.map'), href: '/map', icon: Map },
-    { label: t('nav.volume'), href: '/volume', icon: Layers },
-    { label: t('nav.crs'), href: '/converter', icon: Calculator },
-    { label: t('nav.assistant'), href: '/assistant', icon: Bot },
-    { label: t('nav.units'), href: '/units', icon: Ruler },
-    { label: t('nav.projects'), href: '/projects', icon: FolderKanban },
-  ];
-
-  const mobileNavigation = [
-    { label: t('nav.dashboard'), href: '/', icon: Gauge },
-    { label: t('nav.points'), href: '/points', icon: ClipboardList },
-    { label: 'COGO', href: '/cogo', icon: Compass },
-    { label: 'QA/QC', href: '/qa-qc', icon: ShieldCheck },
-    { label: t('nav.assistant'), href: '/assistant', icon: Bot },
-  ];
-
-  const ChevronIcon = isRtl ? ChevronLeft : ChevronRight;
-
   return (
-    <div
-      className="min-h-screen bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white"
-      dir={dir}
-    >
+    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white" dir="rtl">
       {/* SIDEBAR DESKTOP */}
       <aside
-        className={`fixed inset-y-0 z-50 flex w-[280px] flex-col bg-slate-950/95 px-4 py-5 backdrop-blur-xl transition-transform duration-300 lg:translate-x-0 ${
-          isRtl
-            ? 'right-0 border-l border-slate-800/80'
-            : 'left-0 border-r border-slate-800/80'
-        } ${
-          sidebarOpen
-            ? 'translate-x-0'
-            : isRtl
-            ? 'translate-x-full'
-            : '-translate-x-full'
+        className={`fixed inset-y-0 right-0 z-50 flex w-[280px] flex-col border-l border-slate-800/80 bg-slate-950/95 px-4 py-5 backdrop-blur-xl transition-transform duration-300 lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* LOGO */}
@@ -106,13 +90,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="text-lg font-bold tracking-tight text-white">
                 SurveyPro <span className="text-sky-400">AI</span>
               </div>
-              <div className="text-[11px] text-slate-500">{t('common.appSubtitle')}</div>
+              <div className="text-[11px] text-slate-500">نظام المساحة والجيوماتكس</div>
             </div>
           </Link>
           <button
             className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
             onClick={() => setSidebarOpen(false)}
-            aria-label={t('common.close')}
+            aria-label="إغلاق القائمة"
           >
             <X className="h-5 w-5" />
           </button>
@@ -121,9 +105,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* ACTIVE PROJECT PICKER */}
         <div className="mb-4 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
           <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
-            <span>{t('nav.activeProject')}</span>
+            <span>المشروع النشط</span>
             <Link href="/projects" className="text-sky-400 hover:underline">
-              {t('nav.change')}
+              تغيير
             </Link>
           </div>
           {projects.length > 0 ? (
@@ -143,15 +127,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </select>
           ) : (
             <p className="text-xs font-semibold text-white truncate">
-              {currentProject?.name || t('projects.defaultProjectName')}
+              {currentProject?.name || 'مخطط أرض النخيل'}
             </p>
           )}
         </div>
 
         {/* NAVIGATION LINKS */}
-        <nav className={`flex-1 space-y-1 overflow-y-auto ${isRtl ? 'pr-1' : 'pl-1'}`}>
+        <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
           <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
-            {t('nav.geomaticsTools')}
+            أدوات الجيوماتكس
           </p>
           {navigation.map((item) => {
             const Icon = item.icon;
@@ -173,9 +157,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   }`}
                 />
                 <span className="truncate">{item.label}</span>
-                {active && (
-                  <ChevronIcon className={`${isRtl ? 'mr-auto' : 'ml-auto'} h-3.5 w-3.5 text-sky-500`} />
-                )}
+                {active && <ChevronLeft className="mr-auto h-3.5 w-3.5 text-sky-500" />}
               </Link>
             );
           })}
@@ -185,19 +167,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="space-y-1 border-t border-slate-800/80 pt-3">
           <Link
             href="/pricing"
-            className={`flex items-center gap-2.5 rounded-xl ${
-              isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'
-            } from-amber-500/10 to-transparent px-3 py-2 text-xs font-semibold text-amber-400 transition-colors hover:from-amber-500/15`}
+            className="flex items-center gap-2.5 rounded-xl bg-gradient-to-l from-amber-500/10 to-transparent px-3 py-2 text-xs font-semibold text-amber-400 transition-colors hover:from-amber-500/15"
           >
             <Crown className="h-4 w-4 text-amber-400 shrink-0" />
-            <span>{t('nav.pricing')}</span>
+            <span>الترقية والاشتراك</span>
           </Link>
           <Link
             href="/settings"
             className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs text-slate-400 transition-colors hover:bg-slate-900 hover:text-slate-100"
           >
             <Settings className="h-4 w-4 text-slate-500 shrink-0" />
-            <span>{t('nav.settings')}</span>
+            <span>الإعدادات ونظام القياس</span>
           </Link>
         </div>
       </aside>
@@ -206,19 +186,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <button
           className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
-          aria-label={t('common.close')}
+          aria-label="إغلاق القائمة"
         />
       )}
 
       {/* MAIN CONTAINER */}
-      <main className={`min-h-screen ${isRtl ? 'lg:mr-[280px]' : 'lg:ml-[280px]'}`}>
+      <main className="min-h-screen lg:mr-[280px]">
         {/* HEADER */}
         <header className="sticky top-0 z-30 flex h-[68px] items-center justify-between border-b border-slate-800/70 bg-slate-950/85 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               className="rounded-xl border border-slate-800 bg-slate-900 p-2 text-slate-300 hover:border-slate-700 hover:text-white lg:hidden"
               onClick={() => setSidebarOpen(true)}
-              aria-label="Toggle Menu"
+              aria-label="فتح القائمة"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -229,9 +209,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
             <div className="hidden lg:block">
-              <p className="text-xs text-slate-500">{t('common.appSubtitle')}</p>
+              <p className="text-xs text-slate-500">نظام الرفع المساحي والتحليل الجيوديسي</p>
               <p className="text-sm font-bold text-slate-200">
-                {currentProject?.name || t('projects.defaultProjectName')}
+                {currentProject?.name || 'مخطط أرض النخيل'}
               </p>
             </div>
           </div>
@@ -240,11 +220,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900/80 px-3 py-1.5 sm:flex">
               <span
                 className={`h-2 w-2 rounded-full ${
-                  isOnline ? 'bg-emerald-400' : 'bg-amber-400'
+                  isOnline ? 'bg-emerald-400' : 'bg-red-400'
                 }`}
               />
               <span className="text-[11px] text-slate-400">
-                {isOnline ? t('common.online') : t('common.offline')}
+                {isOnline ? 'جاهز ومتصل' : 'وضع غير متصل (IndexedDB)'}
               </span>
             </div>
             <Link
@@ -252,7 +232,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               className="flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 text-xs font-bold text-purple-300 hover:bg-purple-500/20"
             >
               <Bot className="h-4 w-4 text-purple-400" />
-              <span className="hidden sm:inline">{t('nav.assistant')}</span>
+              <span className="hidden sm:inline">المساعد الذكي</span>
             </Link>
           </div>
         </header>
@@ -275,7 +255,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               }`}
             >
               <Icon className={`h-5 w-5 ${active ? 'stroke-[2.5]' : ''}`} />
-              <span className="truncate max-w-[60px]">{item.label}</span>
+              <span>{item.label}</span>
             </Link>
           );
         })}
@@ -287,7 +267,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function PwaInstallBanner() {
-  const { t, isRtl } = useTranslation();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -305,27 +284,21 @@ function PwaInstallBanner() {
   if (!visible) return null;
 
   return (
-    <div
-      className={`fixed bottom-[80px] left-3 right-3 z-40 lg:bottom-6 lg:max-w-sm ${
-        isRtl ? 'lg:right-[300px] lg:left-auto' : 'lg:left-[300px] lg:right-auto'
-      }`}
-    >
+    <div className="fixed bottom-[80px] left-3 right-3 z-40 lg:bottom-6 lg:left-[300px] lg:right-auto lg:max-w-sm">
       <div className="glass-card flex items-center gap-3 p-4 shadow-2xl shadow-black/40">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 text-white">
           <Compass className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold text-white">SurveyPro AI</p>
+          <p className="text-xs font-bold text-white">تثبيت SurveyPro AI</p>
           <p className="mt-0.5 text-[11px] text-slate-400">
-            {isRtl
-              ? 'ثبّت التطبيق للوصول السريع والعمل الميداني بدون إنترنت'
-              : 'Install app for quick access and offline field operations'}
+            ثبّت التطبيق للوصول السريع والعمل الميداني بدون إنترنت
           </p>
         </div>
         <button
           onClick={dismiss}
           className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-white"
-          aria-label={t('common.close')}
+          aria-label="إغلاق"
         >
           <X className="h-4 w-4" />
         </button>

@@ -1,19 +1,14 @@
-'use client';
-
 import { QAQCDashboard } from '@/components/survey/qa-qc-dashboard';
-import { useTranslation } from '@/lib/i18n';
 
 export default function QAQCPage() {
-  const { t } = useTranslation();
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-          {t('qaqc.title')}
+          تدقيق الجودة المساحية (QA / QC Engine)
         </h1>
         <p className="mt-1.5 text-sm text-slate-400">
-          {t('qaqc.subtitle')}
+          فحص أوتوماتيكي لكشف تكرار النقاط، شذوذ المناسيب، توافق الإسقاط الجغرافي وتوليد تقارير المطابقة
         </p>
       </div>
 

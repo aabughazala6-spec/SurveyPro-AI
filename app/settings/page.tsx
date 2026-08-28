@@ -6,7 +6,6 @@ import {
   Bell,
   CheckCircle2,
   ChevronLeft,
-  ChevronRight,
   Crown,
   Database,
   Globe,
@@ -20,16 +19,15 @@ import {
   Sun,
   Trash2,
   User,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '@/lib/db';
 import { runComprehensiveRegressionSuite } from '@/lib/regression-tests';
-import { useTranslation } from '@/lib/i18n';
-import type { SupportedLanguage } from '@/lib/stores/app-store';
 
 export default function SettingsPage() {
-  const { t, language, setLanguage, isRtl } = useTranslation();
   const [isDark, setIsDark] = useState(true);
+  const [language, setLanguage] = useState('ar');
   const [clearConfirm, setClearConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
@@ -39,23 +37,17 @@ export default function SettingsPage() {
 
   const toggleTheme = () => {
     setIsDark((prev) => {
-      const next = !prev;
-      toast.success(
-        next
-          ? isRtl ? 'تم التبديل إلى الوضع الليلي' : 'Switched to Dark Mode'
-          : isRtl ? 'تم التبديل إلى الوضع النهاري' : 'Switched to Light Mode'
-      );
-      return next;
+      toast.success(prev ? 'تم التبديل إلى الوضع النهاري' : 'تم التبديل إلى الوضع الليلي');
+      return !prev;
     });
   };
 
-  const handleLanguageChange = (newLang: SupportedLanguage) => {
-    setLanguage(newLang);
-    if (newLang === 'ar') {
-      toast.success(t('settings.langSwitchSuccessAr'));
-    } else {
-      toast.success(t('settings.langSwitchSuccessEn'));
-    }
+  const toggleLanguage = () => {
+    setLanguage((prev) => {
+      const next = prev === 'ar' ? 'en' : 'ar';
+      toast.success(next === 'ar' ? 'تم التبديل إلى العربية' : 'Switched to English');
+      return next;
+    });
   };
 
   const clearLocalData = async () => {
@@ -63,10 +55,9 @@ export default function SettingsPage() {
     try {
       await db.points.clear();
       await db.projects.clear();
-      await db.auditLogs.clear();
-      toast.success(t('settings.clearSuccess'));
+      toast.success('تم مسح جميع البيانات المحلية');
     } catch {
-      toast.error(t('settings.clearError'));
+      toast.error('تعذر مسح البيانات');
     } finally {
       setIsClearing(false);
       setClearConfirm(false);
@@ -79,46 +70,36 @@ export default function SettingsPage() {
       const report = runComprehensiveRegressionSuite();
       setTestResults(report);
       if (report.summary.failed === 0) {
-        toast.success(
-          isRtl
-            ? `اجتازت جميع الفحوصات الهندسية (${report.summary.passed}/${report.summary.total}) بنجاح 100%`
-            : `All engineering verification tests (${report.summary.passed}/${report.summary.total}) PASSED 100%`
-        );
+        toast.success(`اجتازت جميع الفحوصات الهندسية (${report.summary.passed}/${report.summary.total}) بنجاح 100%`);
       } else {
-        toast.error(
-          isRtl
-            ? `فشل في ${report.summary.failed} فحص هندسي`
-            : `${report.summary.failed} engineering tests failed`
-        );
+        toast.error(`فشل في ${report.summary.failed} فحص هندسي`);
       }
-    } catch {
-      toast.error(isRtl ? 'حدث خطأ أثناء تشغيل حزمة الفحص' : 'Error running test suite');
+    } catch (err) {
+      toast.error('حدث خطأ أثناء تشغيل حزمة الفحص');
     } finally {
       setIsRunningTests(false);
     }
   };
 
   const handleLogout = () => {
-    toast.success(isRtl ? 'تم تسجيل الخروج بنجاح' : 'Signed out successfully');
+    toast.success('تم تسجيل الخروج بنجاح', { description: 'إلى اللقاء!' });
   };
-
-  const ChevronIcon = isRtl ? ChevronLeft : ChevronRight;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
       <div className="mb-8">
         <div className="mb-3 flex items-center gap-2 text-xs text-slate-500">
-          <span>{t('nav.home')}</span>
-          <ChevronIcon className="h-3 w-3" />
-          <span className="text-slate-300">{t('nav.settings')}</span>
+          <span>الرئيسية</span>
+          <ChevronLeft className="h-3 w-3" />
+          <span className="text-slate-300">الإعدادات</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-700/40 text-slate-300">
             <SettingsIcon className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">{t('settings.title')}</h1>
-            <p className="mt-1 text-sm text-slate-400">{t('settings.subtitle')}</p>
+            <h1 className="text-2xl font-bold text-white sm:text-3xl">الإعدادات وتدقيق النظام</h1>
+            <p className="mt-1 text-sm text-slate-400">إدارة حسابك، وتفضيلات التطبيق، وفحوصات الاعتمادية الهندسية</p>
           </div>
         </div>
       </div>
@@ -131,9 +112,9 @@ export default function SettingsPage() {
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">{t('settings.regressionSection')}</h2>
+              <h2 className="text-base font-bold text-white">حزمة فحوصات الانحدار والاعتماد الهندسي (Regression Tests)</h2>
               <p className="text-xs text-slate-400">
-                {t('settings.regressionDesc')}
+                اختبار حتمي فوري لخوارزميات MAD، والتحويلات الجيوديسية، وCOGO، والحفر والردم
               </p>
             </div>
           </div>
@@ -146,12 +127,12 @@ export default function SettingsPage() {
             {isRunningTests ? (
               <>
                 <RefreshCw className="h-4 w-4 animate-spin" />
-                {t('settings.runningTests')}
+                جاري الفحص...
               </>
             ) : (
               <>
                 <Play className="h-4 w-4 fill-white" />
-                {t('settings.runTestsBtn')}
+                تشغيل كافة الفحوصات
               </>
             )}
           </button>
@@ -161,13 +142,13 @@ export default function SettingsPage() {
           <div className="mt-4 space-y-3">
             <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 text-xs">
               <div className="flex items-center gap-2 font-bold text-white">
-                <span>{t('settings.successRate')}:</span>
-                <span className={testResults.summary.failed === 0 ? 'text-emerald-400' : 'text-red-400'} dir="ltr">
-                  {testResults.summary.successRate.toFixed(1)}% ({testResults.summary.passed}/{testResults.summary.total})
+                <span>نسبة النجاح:</span>
+                <span className={testResults.summary.failed === 0 ? 'text-emerald-400' : 'text-red-400'}>
+                  {testResults.summary.successRate.toFixed(1)}% ({testResults.summary.passed}/{testResults.summary.total} فحص)
                 </span>
               </div>
               <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
-                {testResults.summary.failed === 0 ? t('settings.verifiedBadge') : t('settings.failedBadge')}
+                {testResults.summary.failed === 0 ? 'معتمد هندسياً (VERIFIED)' : 'توجد إخفاقات'}
               </span>
             </div>
 
@@ -182,7 +163,7 @@ export default function SettingsPage() {
                     )}
                     <div>
                       <span className="font-semibold text-slate-200">{res.testName}</span>
-                      <span className="mx-2 text-[10px] text-slate-500">[{res.suite}]</span>
+                      <span className="mr-2 text-[10px] text-slate-500">[{res.suite}]</span>
                       {res.details && <p className="mt-0.5 text-[11px] text-slate-400" dir="ltr">{res.details}</p>}
                     </div>
                   </div>
@@ -196,137 +177,118 @@ export default function SettingsPage() {
         )}
       </section>
 
-      {/* USER PROFILE SECTION */}
       <section className="glass-card mb-5 p-5 sm:p-6">
         <div className="mb-5 flex items-center gap-2">
           <User className="h-5 w-5 text-sky-400" />
-          <h2 className="text-base font-bold text-white">{t('settings.profileSection')}</h2>
+          <h2 className="text-base font-bold text-white">الملف الشخصي</h2>
         </div>
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-500/15 text-2xl font-bold text-sky-400">
-            {isRtl ? 'م' : 'S'}
+            م
           </div>
-          <div className={`flex-1 space-y-3 text-center ${isRtl ? 'sm:text-right' : 'sm:text-left'}`}>
+          <div className="flex-1 space-y-3 text-center sm:text-right">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-xs text-slate-500">{t('common.name')}</span>
-              <span className="text-sm font-semibold text-white">{t('settings.surveyorRole')}</span>
+              <span className="text-xs text-slate-500">الاسم</span>
+              <span className="text-sm font-semibold text-white">مهندس مساحة معتمد</span>
             </div>
             <div className="flex flex-col gap-1 border-t border-slate-800/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="flex items-center gap-1.5 text-xs text-slate-500"><Mail className="h-3.5 w-3.5" /> {t('settings.email')}</span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><Mail className="h-3.5 w-3.5" /> البريد الإلكتروني</span>
               <span className="text-sm font-semibold text-white" dir="ltr">surveyor@surveypro.ai</span>
             </div>
             <div className="flex flex-col gap-1 border-t border-slate-800/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="flex items-center gap-1.5 text-xs text-slate-500"><Crown className="h-3.5 w-3.5 text-amber-400" /> {t('settings.planType')}</span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><Crown className="h-3.5 w-3.5 text-amber-400" /> نوع الاشتراك</span>
               <span className="flex items-center gap-1.5 text-sm font-semibold text-amber-400">
-                {t('settings.planProActive')}
+                الخطة الاحترافية (SurveyPro Enterprise)
+                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px]">نشط</span>
               </span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* PREFERENCES SECTION */}
       <section className="glass-card mb-5 p-5 sm:p-6">
         <div className="mb-5 flex items-center gap-2">
           <SettingsIcon className="h-5 w-5 text-slate-300" />
-          <h2 className="text-base font-bold text-white">{t('settings.preferencesSection')}</h2>
+          <h2 className="text-base font-bold text-white">التفضيلات</h2>
         </div>
         <div className="space-y-1">
           <SettingRow
             icon={isDark ? Moon : Sun}
             iconColor="text-indigo-400"
-            title={t('settings.darkTheme')}
-            subtitle={isDark ? t('settings.darkThemeDesc') : t('settings.lightThemeDesc')}
-            action={<ToggleSwitch checked={isDark} onChange={toggleTheme} isRtl={isRtl} />}
+            title="الوضع الليلي"
+            subtitle="التصميم الداكن — الافتراضي"
+            action={<ToggleSwitch checked={isDark} onChange={toggleTheme} />}
           />
           <SettingRow
             icon={Globe}
             iconColor="text-emerald-400"
-            title={t('settings.language')}
-            subtitle={language === 'ar' ? 'العربية (RTL - Right to Left)' : 'English (LTR - Left to Right)'}
+            title="اللغة"
+            subtitle={language === 'ar' ? 'العربية (RTL)' : 'English (LTR)'}
             action={
-              <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-850 p-1">
-                <button
-                  onClick={() => handleLanguageChange('ar')}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
-                    language === 'ar'
-                      ? 'bg-sky-500 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  العربية
-                </button>
-                <button
-                  onClick={() => handleLanguageChange('en')}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
-                    language === 'en'
-                      ? 'bg-sky-500 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  English
-                </button>
-              </div>
+              <button
+                onClick={toggleLanguage}
+                className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                تبديل
+              </button>
             }
           />
           <SettingRow
             icon={Bell}
             iconColor="text-amber-400"
-            title={t('settings.notifications')}
-            subtitle={t('settings.notificationsDesc')}
-            action={<ToggleSwitch checked={true} onChange={() => toast.info(t('settings.notifications'))} isRtl={isRtl} />}
+            title="الإشعارات"
+            subtitle="تنبيهات النظام والتحديثات"
+            action={<ToggleSwitch checked={true} onChange={() => toast.info('الإشعارات مفعّلة')} />}
           />
         </div>
       </section>
 
-      {/* DATA & SECURITY SECTION */}
       <section className="glass-card mb-5 border-red-500/15 p-5 sm:p-6">
         <div className="mb-5 flex items-center gap-2">
           <Database className="h-5 w-5 text-red-400" />
-          <h2 className="text-base font-bold text-white">{t('settings.dataSecuritySection')}</h2>
+          <h2 className="text-base font-bold text-white">البيانات والأمان</h2>
         </div>
         <div className="space-y-1">
           <SettingRow
             icon={Trash2}
             iconColor="text-red-400"
-            title={t('settings.clearLocalData')}
-            subtitle={t('settings.clearLocalDataDesc')}
+            title="مسح البيانات المحلية"
+            subtitle="حذف جميع المشاريع والنقاط من الجهاز"
             action={
               <button
                 onClick={() => setClearConfirm(true)}
                 className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500/20"
               >
-                {t('settings.clearBtn')}
+                مسح
               </button>
             }
           />
           <SettingRow
             icon={LogOut}
             iconColor="text-slate-400"
-            title={t('settings.logout')}
-            subtitle={t('settings.logoutDesc')}
+            title="تسجيل الخروج"
+            subtitle="الخروج من حسابك"
             action={
               <button
                 onClick={handleLogout}
                 className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
               >
-                {t('settings.logout')}
+                خروج
               </button>
             }
           />
         </div>
       </section>
 
-      {/* CLEAR MODAL */}
       {clearConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-slate-900 p-6 text-center shadow-2xl">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 text-red-400">
               <AlertTriangle className="h-6 w-6" />
             </div>
-            <h2 className="text-lg font-bold text-white">{t('settings.confirmClearTitle')}</h2>
+            <h2 className="text-lg font-bold text-white">تأكيد مسح البيانات</h2>
             <p className="mt-2 text-sm text-slate-400">
-              {t('settings.confirmClearDesc')}
+              سيتم حذف جميع المشاريع والنقاط المحفوظة محلياً نهائياً. لا يمكن التراجع عن هذا الإجراء.
             </p>
             <div className="mt-6 flex gap-3">
               <button
@@ -339,13 +301,10 @@ export default function SettingsPage() {
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}
-                {isClearing ? t('settings.clearing') : t('settings.confirmClearBtn')}
+                {isClearing ? 'جاري المسح...' : 'مسح نهائي'}
               </button>
-              <button
-                onClick={() => setClearConfirm(false)}
-                className="h-11 rounded-xl border border-slate-700 px-5 text-sm font-semibold text-slate-300 hover:bg-slate-800"
-              >
-                {t('common.cancel')}
+              <button onClick={() => setClearConfirm(false)} className="h-11 rounded-xl border border-slate-700 px-5 text-sm font-semibold text-slate-300 hover:bg-slate-800">
+                إلغاء
               </button>
             </div>
           </div>
@@ -382,15 +341,7 @@ function SettingRow({
   );
 }
 
-function ToggleSwitch({
-  checked,
-  onChange,
-  isRtl,
-}: {
-  checked: boolean;
-  onChange: () => void;
-  isRtl: boolean;
-}) {
+function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
     <button
       onClick={onChange}
@@ -398,11 +349,7 @@ function ToggleSwitch({
       aria-pressed={checked}
     >
       <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-          isRtl
-            ? checked ? 'right-0.5' : 'right-[22px]'
-            : checked ? 'left-[22px]' : 'left-0.5'
-        }`}
+        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? 'right-0.5' : 'right-[22px]'}`}
       />
     </button>
   );

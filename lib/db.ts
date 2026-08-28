@@ -31,7 +31,6 @@ export type PointRecord = {
   timestamp: string;
   // Phase 3.1 Extension: Engineering QA flag (distinct from temporary UI selection)
   flagged?: boolean;
-  qaFlagReason?: string;
   layer?: string;
 };
 
