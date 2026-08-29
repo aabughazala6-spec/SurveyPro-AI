@@ -70,32 +70,42 @@ export function calculatePolygonPerimeter3D(points: PointRecord[]): number {
 }
 
 /**
- * Calculates Geometric Centroid of polygon
+ * Calculates Geometric Centroid of polygon (orientation-invariant: works for both CCW and CW vertex order)
  */
 export function calculatePolygonCentroid(points: PointRecord[]): Centroid {
   if (points.length === 0) return { easting: 0, northing: 0 };
   if (points.length === 1) return { easting: points[0].easting, northing: points[0].northing };
+  if (points.length === 2) {
+    return {
+      easting: (points[0].easting + points[1].easting) / 2,
+      northing: (points[0].northing + points[1].northing) / 2,
+    };
+  }
 
-  const area = calculatePolygonArea(points);
-  if (area === 0) {
+  let signedAreaSum = 0;
+  let cx = 0;
+  let cy = 0;
+
+  for (let i = 0; i < points.length; i++) {
+    const current = points[i];
+    const next = points[(i + 1) % points.length];
+    const factor = current.easting * next.northing - next.easting * current.northing;
+    signedAreaSum += factor;
+    cx += (current.easting + next.easting) * factor;
+    cy += (current.northing + next.northing) * factor;
+  }
+
+  const signedArea = signedAreaSum / 2;
+
+  if (Math.abs(signedArea) < 1e-7) {
     const meanE = points.reduce((s, p) => s + p.easting, 0) / points.length;
     const meanN = points.reduce((s, p) => s + p.northing, 0) / points.length;
     return { easting: meanE, northing: meanN };
   }
 
-  let cx = 0;
-  let cy = 0;
-  for (let i = 0; i < points.length; i++) {
-    const current = points[i];
-    const next = points[(i + 1) % points.length];
-    const factor = current.easting * next.northing - next.easting * current.northing;
-    cx += (current.easting + next.easting) * factor;
-    cy += (current.northing + next.northing) * factor;
-  }
-
   return {
-    easting: cx / (6 * area),
-    northing: cy / (6 * area),
+    easting: cx / (6 * signedArea),
+    northing: cy / (6 * signedArea),
   };
 }
 

@@ -10,15 +10,31 @@ export function generateDXF(
     includeBoundary?: boolean;
     includeTextLabels?: boolean;
     includeElevationText?: boolean;
+    includeQaqcFlags?: boolean;
     textHeight?: number;
+    selectedPointIds?: string[];
+    layerFilter?: string;
   } = {}
 ): string {
   const {
     includeBoundary = true,
     includeTextLabels = true,
     includeElevationText = true,
+    includeQaqcFlags = true,
     textHeight = 1.5,
+    selectedPointIds,
+    layerFilter,
   } = options;
+
+  // Filter points if criteria provided
+  let exportPoints = points;
+  if (selectedPointIds && selectedPointIds.length > 0) {
+    const idSet = new Set(selectedPointIds);
+    exportPoints = exportPoints.filter((p) => idSet.has(p.id));
+  }
+  if (layerFilter && layerFilter !== 'ALL') {
+    exportPoints = exportPoints.filter((p) => (p.layer || 'POINTS') === layerFilter);
+  }
 
   let dxf = `0
 SECTION
@@ -43,7 +59,7 @@ TABLE
 2
 LAYER
 70
-4
+5
 0
 LAYER
 2
@@ -85,6 +101,16 @@ BOUNDARY
 6
 CONTINUOUS
 0
+LAYER
+2
+QAQC_FLAGS
+70
+0
+62
+6
+6
+CONTINUOUS
+0
 ENDTAB
 0
 ENDSEC
@@ -95,12 +121,13 @@ ENTITIES
 `;
 
   // 1. Write Points
-  points.forEach((p) => {
+  exportPoints.forEach((p) => {
+    const pointLayer = p.layer || 'POINTS';
     // 3D Point
     dxf += `0
 POINT
 8
-POINTS
+${pointLayer}
 10
 ${p.easting.toFixed(4)}
 20
@@ -165,10 +192,29 @@ ${(textHeight * 0.8).toFixed(2)}
 ${p.description}
 `;
     }
+
+    // QA/QC Flag indicator in DXF
+    if (includeQaqcFlags && p.flagged) {
+      dxf += `0
+TEXT
+8
+QAQC_FLAGS
+10
+${(p.easting - textHeight * 3.0).toFixed(4)}
+20
+${(p.northing + textHeight * 0.5).toFixed(4)}
+30
+${p.elevation.toFixed(4)}
+40
+${(textHeight * 0.9).toFixed(2)}
+1
+[FLAGGED: ${p.qaFlagReason || 'REVIEW'}]
+`;
+    }
   });
 
   // 2. Write Closed Boundary Polyline if >= 3 points
-  if (includeBoundary && points.length >= 3) {
+  if (includeBoundary && exportPoints.length >= 3) {
     dxf += `0
 POLYLINE
 8
@@ -184,7 +230,7 @@ BOUNDARY
 30
 0.0
 `;
-    points.forEach((p) => {
+    exportPoints.forEach((p) => {
       dxf += `0
 VERTEX
 8

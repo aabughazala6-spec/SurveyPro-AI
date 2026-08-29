@@ -5,22 +5,20 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   CheckCircle2,
-  Compass,
   FileCheck,
   Globe2,
   Info,
-  Layers,
-  MapPin,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { SUPPORTED_CRS, transformCoordinates, type CRSDefinition } from '@/lib/crs-definitions';
+import { SUPPORTED_CRS, transformCoordinates } from '@/lib/crs-definitions';
 import { transformProjectCrs } from '@/lib/point-operations';
 import { db, type PointRecord } from '@/lib/db';
 import { useAppStore } from '@/lib/stores/app-store';
+import { useTranslation } from '@/lib/i18n';
 
 interface CrsSafetyPanelProps {
   points?: PointRecord[];
@@ -33,8 +31,8 @@ export function CrsSafetyPanel({
   points = [],
   onCrsChanged,
   className = '',
-  compact = false,
 }: CrsSafetyPanelProps) {
+  const { t, isRtl, language } = useTranslation();
   const currentProjectId = useAppStore((state) => state.currentProjectId);
   const currentProject = useAppStore((state) => state.currentProject);
   const activeCrs = useAppStore((state) => state.activeCrs);
@@ -93,7 +91,7 @@ export function CrsSafetyPanel({
 
   const handleExecuteCrsMigration = async () => {
     if (isTargetRegional && !confirmSafetyAcknowledgment && transformMode === 'TRANSFORM_COORDINATES') {
-      toast.error('يرجى تأكيد الاطلاع على متطلبات الضبط الجيوديسي ونقاط التحكم الأرضية (GCP)');
+      toast.error(t('crsSafety.gcpWarningToast'));
       return;
     }
 
@@ -107,7 +105,7 @@ export function CrsSafetyPanel({
       });
 
       if (!res.success) {
-        toast.error(res.error || 'فشلت عملية تغيير نظام الإسناد');
+        toast.error(res.error || t('crsSafety.crsTransformError'));
         return;
       }
 
@@ -120,18 +118,26 @@ export function CrsSafetyPanel({
 
       toast.success(
         transformMode === 'TRANSFORM_COORDINATES'
-          ? `تم تحويل إحداثيات ${res.transformedCount} نقطة إلى [${targetCrsDef.code}] بنجاح`
-          : `تم تعيين تعريف الإسناد [${targetCrsDef.code}] للمشروع بنجاح`
+          ? t('crsSafety.crsTransformSuccess', { count: res.transformedCount, code: targetCrsDef.code })
+          : t('crsSafety.crsAssignedSuccess', { code: targetCrsDef.code })
       );
 
       onCrsChanged?.(selectedTargetCrs);
       setIsModalOpen(false);
     } catch (err) {
-      toast.error('حدث خطأ أثناء معالجة النظام الجيوديسي');
+      toast.error(t('crsSafety.crsProcessError'));
       console.error(err);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const getCrsName = (crs: typeof currentCrsDef) => {
+    return language === 'ar' ? crs.nameAr : (crs.nameEn || crs.nameAr);
+  };
+
+  const getTransformationNote = (crs: typeof currentCrsDef) => {
+    return language === 'ar' ? crs.transformationNoteAr : (crs.transformationNoteEn || crs.transformationNoteAr);
   };
 
   return (
@@ -167,29 +173,29 @@ export function CrsSafetyPanel({
                 </span>
                 <span className="text-slate-400 text-xs">•</span>
                 <span className="text-xs font-semibold text-slate-200">
-                  {currentCrsDef.nameAr}
+                  {getCrsName(currentCrsDef)}
                 </span>
 
                 {isCurrentAuthoritative ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
-                    <CheckCircle2 className="h-3 w-3" /> نظام قياسي معتمد
+                    <CheckCircle2 className="h-3 w-3" /> {t('crsSafety.authoritativeBadge')}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-bold text-amber-400">
-                    <AlertTriangle className="h-3 w-3" /> يتطلب ضبط GCP أرضي
+                    <AlertTriangle className="h-3 w-3" /> {t('crsSafety.regionalWarningBadge')}
                   </span>
                 )}
               </div>
 
               <p className="mt-1 text-xs text-slate-400 leading-relaxed max-w-2xl">
-                المرجع: <span className="text-slate-300 font-medium">{currentCrsDef.datumName}</span> | المجسم البيضاوي: <span className="text-slate-300 font-medium">{currentCrsDef.ellipsoid}</span> | المنطقة: <span className="text-slate-300 font-medium">{currentCrsDef.region}</span>
+                {t('crsSafety.datumPrefix', { datum: currentCrsDef.datumName })} | {t('crsSafety.ellipsoidPrefix', { ellipsoid: currentCrsDef.ellipsoid })} | {t('crsSafety.regionPrefix', { region: currentCrsDef.region })}
               </p>
 
               {!isCurrentAuthoritative && (
                 <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-[11px] text-amber-300/90 leading-relaxed">
                   <Info className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
                   <span>
-                    <strong>تنبيه جيوديسي:</strong> {currentCrsDef.transformationNoteAr} يلزم الربط مع نقاط مثلثات وطنية أو محطات رصد أرضية لضمان الدقة المليمترية.
+                    <strong>{t('crsSafety.geodeticAlertTitle')}</strong> {getTransformationNote(currentCrsDef)} {t('crsSafety.geodeticAlertText')}
                   </span>
                 </div>
               )}
@@ -207,7 +213,7 @@ export function CrsSafetyPanel({
               className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/90 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:border-sky-500/40 hover:bg-slate-750 transition-colors"
             >
               <ArrowRightLeft className="h-3.5 w-3.5 text-sky-400" />
-              تغيير / تحويل نظام الإسناد
+              {t('crsSafety.changeCrsBtn')}
             </button>
           </div>
         </div>
@@ -216,16 +222,16 @@ export function CrsSafetyPanel({
       {/* CRS MIGRATION & TRANSFORMATION MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7 text-right my-8 max-h-[90vh] overflow-y-auto">
+          <div className={`w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7 ${isRtl ? 'text-right' : 'text-left'} my-8 max-h-[90vh] overflow-y-auto`}>
             {/* Header */}
             <div className="mb-6 flex items-start justify-between border-b border-slate-800 pb-4">
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <Globe2 className="h-5 w-5 text-sky-400" />
-                  لوحة إدارة ونقل نظم الإسناد الجيوديسي (CRS Safety Manager)
+                  {t('crsSafety.dialogTitle')}
                 </h3>
                 <p className="mt-1 text-xs text-slate-400">
-                  إدارة نظام الإحداثيات لمشروع &laquo;{currentProject?.name}&raquo;
+                  {currentProject?.name}
                 </p>
               </div>
               <button
@@ -241,22 +247,22 @@ export function CrsSafetyPanel({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
                   <span className="text-[11px] font-semibold text-slate-500 block mb-1">
-                    النظام الحالي للمشروع
+                    {t('crsSafety.currentProjectSystem')}
                   </span>
                   <div className="font-mono text-sm font-bold text-emerald-400">
                     {currentCrsDef.code}
                   </div>
                   <p className="text-xs text-slate-300 mt-1 font-medium">
-                    {currentCrsDef.nameAr}
+                    {getCrsName(currentCrsDef)}
                   </p>
                   <p className="text-[10px] text-slate-500 mt-0.5">
-                    المرجع: {currentCrsDef.datumName}
+                    {t('crsSafety.datumPrefix', { datum: currentCrsDef.datumName })}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-sky-500/30 bg-slate-950 p-4">
                   <label className="text-[11px] font-semibold text-sky-400 block mb-1">
-                    النظام المستهدف (Target CRS)
+                    {t('crsSafety.targetCrsLabel')}
                   </label>
                   <select
                     value={selectedTargetCrs}
@@ -265,12 +271,12 @@ export function CrsSafetyPanel({
                   >
                     {SUPPORTED_CRS.map((crs) => (
                       <option key={crs.code} value={crs.code}>
-                        {crs.code} - {crs.nameAr}
+                        {crs.code} - {getCrsName(crs)}
                       </option>
                     ))}
                   </select>
                   <p className="text-[10px] text-slate-400 mt-1">
-                    المرجع: {targetCrsDef.datumName} ({targetCrsDef.region})
+                    {t('crsSafety.datumPrefix', { datum: targetCrsDef.datumName })} ({targetCrsDef.region})
                   </p>
                 </div>
               </div>
@@ -280,10 +286,10 @@ export function CrsSafetyPanel({
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200">
                   <div className="flex items-center gap-2 font-bold text-amber-300 mb-1">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
-                    تحذير جيوديسي: النظام المستهدف يتطلب ضبط أرضي (GCP)
+                    {t('crsSafety.gcpWarningDialogTitle')}
                   </div>
                   <p className="text-[11px] leading-relaxed text-amber-200/90">
-                    {targetCrsDef.transformationNoteAr}
+                    {getTransformationNote(targetCrsDef)}
                   </p>
                   <label className="mt-3 flex items-center gap-2 cursor-pointer font-semibold text-amber-300 text-xs select-none">
                     <input
@@ -292,7 +298,7 @@ export function CrsSafetyPanel({
                       onChange={(e) => setConfirmSafetyAcknowledgment(e.target.checked)}
                       className="rounded border-amber-500 bg-slate-900 text-amber-500 focus:ring-0"
                     />
-                    أقر بمعرفتي بالفوارق الجيوديسية وضرورة المعايرة الحقلية مع نقاط الثوابت
+                    {t('crsSafety.gcpAckCheckbox')}
                   </label>
                 </div>
               )}
@@ -300,7 +306,7 @@ export function CrsSafetyPanel({
               {/* TRANSFORMATION MODE SELECTION */}
               <div>
                 <label className="text-xs font-bold text-slate-300 block mb-2">
-                  طريقة التطبيق (Application Mode)
+                  {t('crsSafety.applyModeLabel')}
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label
@@ -319,10 +325,10 @@ export function CrsSafetyPanel({
                         onChange={() => setTransformMode('TRANSFORM_COORDINATES')}
                         className="text-sky-500 focus:ring-0"
                       />
-                      تحويل هندسي للإحداثيات (Transform Math)
+                      {t('crsSafety.modeMathTransform')}
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                      إعادة حساب قيم (Easting, Northing) لجميع نقاط المشروع رياضياً بناءً على بارامترات الإسقاط والإزاحة.
+                      {t('crsSafety.modeMathTransformDesc')}
                     </p>
                   </label>
 
@@ -342,10 +348,10 @@ export function CrsSafetyPanel({
                         onChange={() => setTransformMode('ASSIGN_METADATA_ONLY')}
                         className="text-emerald-500 focus:ring-0"
                       />
-                      تحديث بطاقة التعريف فقط (Metadata Only)
+                      {t('crsSafety.modeMetadataOnly')}
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                      تغيير اسم وكود النظام في المشروع دون المساس بالأرقام الحالية (مناسب إذا كانت النقاط مرفوعة أصلاً بهذا النظام).
+                      {t('crsSafety.modeMetadataOnlyDesc')}
                     </p>
                   </label>
                 </div>
@@ -357,19 +363,19 @@ export function CrsSafetyPanel({
                   <div className="flex items-center justify-between mb-2.5">
                     <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                       <FileCheck className="h-4 w-4 text-sky-400" />
-                      معاينة تحويل عينة من نقاط المشروع ({sampleTransformation.length} نقاط)
+                      {t('crsSafety.samplePreviewTitle', { count: sampleTransformation.length })}
                     </span>
-                    <span className="text-[10px] text-slate-500">إجمالي نقاط المشروع: {points.length}</span>
+                    <span className="text-[10px] text-slate-500">{t('crsSafety.totalPointsLabel', { count: points.length })}</span>
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-right text-[11px]">
+                    <table className={`w-full ${isRtl ? 'text-right' : 'text-left'} text-[11px]`}>
                       <thead>
                         <tr className="border-b border-slate-800 text-slate-400">
-                          <th className="py-1 px-2">النقطة</th>
-                          <th className="py-1 px-2">قبل التحويل ({currentCrsDef.code})</th>
-                          <th className="py-1 px-2">بعد التحويل ({targetCrsDef.code})</th>
-                          <th className="py-1 px-2 text-sky-400">فرق الإزاحة (ΔE, ΔN)</th>
+                          <th className="py-1 px-2">{t('pointsWorkspace.thPoint')}</th>
+                          <th className="py-1 px-2">{t('crsSafety.beforeTransform', { crs: currentCrsDef.code })}</th>
+                          <th className="py-1 px-2">{t('crsSafety.afterTransform', { crs: targetCrsDef.code })}</th>
+                          <th className="py-1 px-2 text-sky-400">{t('crsSafety.shiftDelta')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-850 font-mono text-slate-300">
@@ -409,7 +415,7 @@ export function CrsSafetyPanel({
                   className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-sky-500 text-xs font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-sky-400 disabled:opacity-50 transition-all"
                 >
                   <RefreshCw className={`h-4 w-4 ${isProcessing ? 'animate-spin' : ''}`} />
-                  {isProcessing ? 'جاري تطبيق التحويل الجيوديسي...' : 'تأكيد وحفظ نظام الإسناد'}
+                  {isProcessing ? t('crsSafety.applyingTransform') : t('crsSafety.confirmAndSaveCrs')}
                 </button>
                 <button
                   type="button"
@@ -417,7 +423,7 @@ export function CrsSafetyPanel({
                   disabled={isProcessing}
                   className="rounded-xl border border-slate-700 px-5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
                 >
-                  إلغاء
+                  {t('common.cancel')}
                 </button>
               </div>
             </div>

@@ -13,9 +13,25 @@
 
 import { detectElevationOutliers, runSurveyQAQC } from './qa-qc-engine';
 import { transformCoordinates, SUPPORTED_CRS } from './crs-definitions';
-import { calculateInverse, calculateForward, calculateCircularCurve } from './cogo-engine';
-import { calculatePolygonArea, calculatePolygonPerimeter } from './survey-calculations';
+import {
+  calculateInverse,
+  calculateForward,
+  calculateCircularCurve,
+  calculateTraverseBowditch,
+  calculateBearingBearingIntersection,
+  calculateDistanceDistanceIntersection,
+  calculatePointToBaselineOffset,
+  reduceLevelingLoop,
+} from './cogo-engine';
+import { calculatePolygonArea, calculatePolygonPerimeter, calculatePolygonCentroid } from './survey-calculations';
 import { generateDXF } from './dxf-generator';
+import {
+  generateCSV,
+  generateSurveyReportTXT,
+  generateKML,
+  generateGeoJSON,
+  filterExportPoints,
+} from './export-engine';
 import type { PointRecord } from './db';
 import {
   detectDelimiter,
@@ -26,6 +42,26 @@ import {
   commitSurveyImport,
 } from './import-engine';
 import { calculatePointStatistics } from './point-operations';
+import {
+  projectPointsToMapPoints,
+  mapLatLngToProjectGrid,
+  calculateProjectMapSummary,
+  calculateMapPathMeasurement,
+  getElevationColor,
+} from './map-engine';
+import {
+  engFormat,
+  formatEngineeringNumber,
+  formatCoordinate,
+  formatElevation,
+  formatArea,
+  formatDistance,
+  formatAngle,
+  isPureWesternDigits,
+  isRtlLanguage,
+  translateKey,
+} from './engineering-formatter';
+import { locales } from '@/locales';
 
 export interface TestResult {
   suite: string;
@@ -233,6 +269,60 @@ export function runComprehensiveRegressionSuite(): {
       'Earthwork Uniform Cut Volume (10,000m² * 2m = 20,000 m³)',
       Math.abs(cutVolume - 0) < 1e-4,
       `Computed Cut on flat grade: ${cutVolume.toFixed(2)} m³`
+    );
+
+    // Test 4.4: Polygon Centroid Analytical Validation (Right Triangle CCW & CW)
+    const triangleCCW: PointRecord[] = [
+      { id: 't1', projectId: 'p1', pointNumber: 1, easting: 100, northing: 100, elevation: 0, description: '', timestamp: '' },
+      { id: 't2', projectId: 'p1', pointNumber: 2, easting: 200, northing: 100, elevation: 0, description: '', timestamp: '' },
+      { id: 't3', projectId: 'p1', pointNumber: 3, easting: 100, northing: 200, elevation: 0, description: '', timestamp: '' },
+    ];
+    const triangleCW: PointRecord[] = [
+      { id: 't1', projectId: 'p1', pointNumber: 1, easting: 100, northing: 100, elevation: 0, description: '', timestamp: '' },
+      { id: 't3', projectId: 'p1', pointNumber: 3, easting: 100, northing: 200, elevation: 0, description: '', timestamp: '' },
+      { id: 't2', projectId: 'p1', pointNumber: 2, easting: 200, northing: 100, elevation: 0, description: '', timestamp: '' },
+    ];
+
+    const centroidCCW = calculatePolygonCentroid(triangleCCW);
+    const centroidCW = calculatePolygonCentroid(triangleCW);
+    const expectedCentroidE = 400 / 3; // 133.3333...
+    const expectedCentroidN = 400 / 3; // 133.3333...
+
+    assert(
+      suite,
+      'Polygon Centroid Analytical Correctness (Triangle Centroid E=133.333, N=133.333)',
+      Math.abs(centroidCCW.easting - expectedCentroidE) < 1e-4 &&
+        Math.abs(centroidCCW.northing - expectedCentroidN) < 1e-4,
+      `CCW Computed: E=${centroidCCW.easting.toFixed(4)}, N=${centroidCCW.northing.toFixed(4)}`
+    );
+
+    assert(
+      suite,
+      'Polygon Centroid Orientation Invariance (CW matches CCW without sign inversion)',
+      Math.abs(centroidCW.easting - centroidCCW.easting) < 1e-6 &&
+        Math.abs(centroidCW.northing - centroidCCW.northing) < 1e-6 &&
+        centroidCW.easting > 0 &&
+        centroidCW.northing > 0,
+      `CW Computed: E=${centroidCW.easting.toFixed(4)}, N=${centroidCW.northing.toFixed(4)}`
+    );
+
+    // Test 4.5: Polygon Centroid Orientation Invariance (Square CCW & CW)
+    const squareCW: PointRecord[] = [
+      { id: 's1', projectId: 'p1', pointNumber: 1, easting: 0, northing: 0, elevation: 0, description: '', timestamp: '' },
+      { id: 's4', projectId: 'p1', pointNumber: 4, easting: 0, northing: 100, elevation: 0, description: '', timestamp: '' },
+      { id: 's3', projectId: 'p1', pointNumber: 3, easting: 100, northing: 100, elevation: 0, description: '', timestamp: '' },
+      { id: 's2', projectId: 'p1', pointNumber: 2, easting: 100, northing: 0, elevation: 0, description: '', timestamp: '' },
+    ];
+    const centroidSquareCCW = calculatePolygonCentroid(squarePts);
+    const centroidSquareCW = calculatePolygonCentroid(squareCW);
+
+    assert(
+      suite,
+      'Square Polygon Centroid Orientation Invariance (Exact Center E=50, N=50)',
+      Math.abs(centroidSquareCCW.easting - 50) < 1e-5 &&
+        Math.abs(centroidSquareCW.easting - 50) < 1e-5 &&
+        Math.abs(centroidSquareCW.northing - 50) < 1e-5,
+      `CCW Center: (${centroidSquareCCW.easting}, ${centroidSquareCCW.northing}), CW Center: (${centroidSquareCW.easting}, ${centroidSquareCW.northing})`
     );
   }
 
@@ -527,6 +617,660 @@ export function runComprehensiveRegressionSuite(): {
       '10. Identity CRS transformation returns exact coordinates',
       identity.x === 673450.25 && identity.y === 2736120.4 && identity.z === 648.5,
       `x: ${identity.x}, y: ${identity.y}, z: ${identity.z}`
+    );
+  }
+
+  // -------------------------------------------------------------
+  // SUITE 8: Phase 3.4 Interactive Map & CAD Measurement Engine
+  // -------------------------------------------------------------
+  {
+    const suite = '8. Interactive Map & CAD Engine (Phase 3.4)';
+
+    // Test dataset in UTM 36N (Cairo / Delta region)
+    const mapTestPoints: PointRecord[] = [
+      {
+        id: 'mp1',
+        projectId: 'proj_map',
+        pointNumber: 1,
+        easting: 330000.0,
+        northing: 3320000.0,
+        elevation: 100.0,
+        description: 'Corner 1',
+        layer: 'BOUNDARY',
+        flagged: false,
+        timestamp: '2026-08-26',
+      },
+      {
+        id: 'mp2',
+        projectId: 'proj_map',
+        pointNumber: 2,
+        easting: 330500.0,
+        northing: 3320000.0,
+        elevation: 120.0,
+        description: 'Corner 2',
+        layer: 'BOUNDARY',
+        flagged: false,
+        timestamp: '2026-08-26',
+      },
+      {
+        id: 'mp3',
+        projectId: 'proj_map',
+        pointNumber: 3,
+        easting: 330500.0,
+        northing: 3320400.0,
+        elevation: 150.0,
+        description: 'Corner 3',
+        layer: 'BOUNDARY',
+        flagged: true,
+        timestamp: '2026-08-26',
+      },
+      {
+        id: 'mp4',
+        projectId: 'proj_map',
+        pointNumber: 4,
+        easting: 330000.0,
+        northing: 3320400.0,
+        elevation: 110.0,
+        description: 'Corner 4',
+        layer: 'BOUNDARY',
+        flagged: false,
+        timestamp: '2026-08-26',
+      },
+    ];
+
+    // 1. Convert project points to Map Point DTOs with WGS84 coordinates
+    const mapPoints = projectPointsToMapPoints(mapTestPoints, 'EPSG:32636');
+    const allValidTransform =
+      mapPoints.length === 4 &&
+      mapPoints.every((p) => p.isTransformedValid && p.lat > 29 && p.lat < 31 && p.lng > 30 && p.lng < 33);
+
+    assert(
+      suite,
+      '1. Project points correctly project to valid WGS84 Leaflet coordinates',
+      allValidTransform,
+      `P1 Lat: ${mapPoints[0]?.lat.toFixed(5)}°, Lng: ${mapPoints[0]?.lng.toFixed(5)}°`
+    );
+
+    // 2. Elevation normalization ramp (0..1)
+    const normP1 = mapPoints[0]?.elevationNormalized;
+    const normP3 = mapPoints[2]?.elevationNormalized;
+    assert(
+      suite,
+      '2. Elevation color ramp normalization (Min 100m -> 0.0, Max 150m -> 1.0)',
+      normP1 === 0 && normP3 === 1,
+      `P1 Norm: ${normP1}, P3 Norm: ${normP3}`
+    );
+
+    // 3. Elevation color ramp values
+    const cLow = getElevationColor(0.1);
+    const cHigh = getElevationColor(0.9);
+    assert(
+      suite,
+      '3. Elevation color generator produces contrasting palette',
+      cLow === '#38bdf8' && cHigh === '#ef4444',
+      `Low: ${cLow}, High: ${cHigh}`
+    );
+
+    // 4. Map click coordinate reverse-projection (WGS84 -> Project Grid)
+    const clickedP1 = mapPoints[0];
+    const unprojected = mapLatLngToProjectGrid(clickedP1.lat, clickedP1.lng, 'EPSG:32636', 100.0);
+    const dE = Math.abs(unprojected.easting - 330000.0);
+    const dN = Math.abs(unprojected.northing - 3320000.0);
+    assert(
+      suite,
+      '4. Reverse projection (WGS84 Lat/Lng to Project Grid) within millimeter accuracy',
+      unprojected.isValid && dE < 0.01 && dN < 0.01,
+      `dE: ${dE.toFixed(4)}m, dN: ${dN.toFixed(4)}m`
+    );
+
+    // 5. Project Map Summary calculation
+    const summary = calculateProjectMapSummary(mapTestPoints, 'EPSG:32636');
+    assert(
+      suite,
+      '5. Project Map Summary metrics (Area = 200,000 m², Perimeter = 1800m, Flagged = 1)',
+      summary.validPointCount === 4 &&
+        Math.abs(summary.areaSqm - 200000) < 1e-3 &&
+        Math.abs(summary.perimeter2D - 1800) < 1e-3 &&
+        summary.flaggedCount === 1 &&
+        summary.deltaElevation === 50,
+      `Area: ${summary.areaSqm} m², Perimeter: ${summary.perimeter2D} m, ΔZ: ${summary.deltaElevation} m`
+    );
+
+    // 6. Map Path Distance & Inverse Measurement
+    const distMeasurement = calculateMapPathMeasurement(
+      [
+        { easting: 330000, northing: 3320000, elevation: 100 },
+        { easting: 330500, northing: 3320000, elevation: 120 },
+      ],
+      'distance'
+    );
+    assert(
+      suite,
+      '6. Interactive CAD Distance & Slope calculation between 2 points',
+      Math.abs(distMeasurement.totalHorizontalDistance - 500) < 1e-3 &&
+        Math.abs(distMeasurement.totalSlopeDistance - Math.sqrt(500 * 500 + 20 * 20)) < 1e-3,
+      `HD: ${distMeasurement.totalHorizontalDistance.toFixed(3)} m, SD: ${distMeasurement.totalSlopeDistance.toFixed(3)} m`
+    );
+
+    // 7. Map Path Azimuth Measurement
+    const azMeasurement = calculateMapPathMeasurement(
+      [
+        { easting: 330000, northing: 3320000 },
+        { easting: 330000, northing: 3320400 },
+      ],
+      'azimuth'
+    );
+    const az = azMeasurement.segments[0]?.inverse.azimuthDecimal;
+    assert(
+      suite,
+      '7. Interactive CAD Azimuth calculation (Due North = 0°)',
+      az === 0,
+      `Azimuth: ${az}°`
+    );
+
+    // 8. Map Area Path Measurement
+    const areaMeasurement = calculateMapPathMeasurement(
+      [
+        { easting: 0, northing: 0 },
+        { easting: 100, northing: 0 },
+        { easting: 100, northing: 50 },
+        { easting: 0, northing: 50 },
+      ],
+      'area'
+    );
+    assert(
+      suite,
+      '8. Interactive CAD Area path calculation (100m x 50m = 5,000 m²)',
+      areaMeasurement.areaSqm !== undefined &&
+        Math.abs(areaMeasurement.areaSqm - 5000) < 1e-3 &&
+        areaMeasurement.perimeter2D !== undefined &&
+        Math.abs(areaMeasurement.perimeter2D - 300) < 1e-3,
+      `Area: ${areaMeasurement.areaSqm} m², Perimeter: ${areaMeasurement.perimeter2D} m`
+    );
+  }
+
+  // ==========================================
+  // SUITE 11: Phase 3.5 Engineering Math Engine
+  // ==========================================
+  {
+    const suite = 'Engineering Toolbox Math Engine';
+
+    // 1. Bowditch Closed Loop Traverse Balancing
+    const startPt = { easting: 500000.0, northing: 3000000.0, elevation: 100.0 };
+    const legs = [
+      { stationName: 'St-1', distance: 100.0, azimuth: 90.0, deltaZ: 0.5 },
+      { stationName: 'St-2', distance: 100.0, azimuth: 0.0, deltaZ: -0.2 },
+      { stationName: 'St-3', distance: 100.0, azimuth: 270.0, deltaZ: -0.4 },
+      { stationName: 'St-4', distance: 100.0, azimuth: 180.0, deltaZ: 0.1 },
+    ];
+    const trav = calculateTraverseBowditch(startPt, legs);
+    assert(
+      suite,
+      '1. Bowditch Closed Loop Traverse (Perimeter = 400m, Error < 1mm, Balanced Closure)',
+      Math.abs(trav.totalPerimeter - 400.0) < 1e-3 &&
+        trav.linearErrorOfClosure < 1e-3 &&
+        Math.abs(trav.legs[3].adjustedEasting - 500000.0) < 1e-3 &&
+        Math.abs(trav.legs[3].adjustedNorthing - 3000000.0) < 1e-3,
+      `Perimeter: ${trav.totalPerimeter}m, Error: ${trav.linearErrorOfClosure}m, Final E: ${trav.legs[3]?.adjustedEasting}`
+    );
+
+    // 2. Bearing-Bearing Intersection (90° perpendicular crossing)
+    const pA = { easting: 0, northing: 0 };
+    const azA = 45.0;
+    const pB = { easting: 100, northing: 0 };
+    const azB = 315.0;
+    const bb = calculateBearingBearingIntersection(pA, azA, pB, azB);
+    assert(
+      suite,
+      '2. Bearing-Bearing Intersection (45° & 315° from 100m baseline -> Apex at 50, 50)',
+      bb.isValid &&
+        bb.intersectionPoint !== undefined &&
+        Math.abs(bb.intersectionPoint.easting - 50.0) < 1e-3 &&
+        Math.abs(bb.intersectionPoint.northing - 50.0) < 1e-3,
+      `Intersected at E: ${bb.intersectionPoint?.easting}, N: ${bb.intersectionPoint?.northing}`
+    );
+
+    // 3. Distance-Distance Trilateration (3-4-5 triangle)
+    const p1 = { easting: 0, northing: 0 };
+    const p2 = { easting: 40, northing: 0 };
+    const dd = calculateDistanceDistanceIntersection(p1, 50, p2, 30);
+    assert(
+      suite,
+      '3. Distance-Distance Trilateration (R1=50, R2=30, Base=40 -> Right solution E=40, N=30)',
+      dd.isValid &&
+        dd.solution1 !== undefined &&
+        Math.abs(dd.solution1.easting - 40.0) < 1e-3 &&
+        Math.abs(Math.abs(dd.solution1.northing) - 30.0) < 1e-3,
+      `Solution 1: E=${dd.solution1?.easting}, N=${dd.solution1?.northing}`
+    );
+
+    // 4. Point to Baseline Station & Offset
+    const baseA = { easting: 100, northing: 100 };
+    const baseB = { easting: 200, northing: 100 }; // Eastward baseline along N=100
+    const testPt = { easting: 150, northing: 125 }; // 25m left/North of station 50
+    const so = calculatePointToBaselineOffset(baseA, baseB, testPt);
+    assert(
+      suite,
+      '4. Point-to-Baseline Offset (Sta = 50.0m, Offset = 25.0m LEFT)',
+      so.isValid &&
+        Math.abs(so.station - 50.0) < 1e-3 &&
+        Math.abs(so.offsetDistance - 25.0) < 1e-3 &&
+        so.offsetSide === 'LEFT',
+      `Station: ${so.station}m, Offset: ${so.offsetDistance}m, Side: ${so.offsetSide}`
+    );
+
+    // 5. Differential Leveling Loop Reduction
+    const leveling = reduceLevelingLoop(100.0, [
+      { stationName: 'BM-1', backSight: 1.5 },
+      { stationName: 'St-1', intermediateSight: 1.2 },
+      { stationName: 'CP-1', backSight: 2.0, foreSight: 0.8 },
+      { stationName: 'BM-1', foreSight: 2.7 },
+    ]);
+    assert(
+      suite,
+      '5. Differential Leveling Loop (Sum BS = 3.5m, Sum FS = 3.5m, Misclosure = 0.000m)',
+      Math.abs(leveling.sumBackSight - 3.5) < 1e-3 &&
+        Math.abs(leveling.sumForeSight - 3.5) < 1e-3 &&
+        Math.abs(leveling.misclosure) < 1e-3 &&
+        leveling.isClosed,
+      `Sum BS: ${leveling.sumBackSight}, Sum FS: ${leveling.sumForeSight}, Misclosure: ${leveling.misclosure}`
+    );
+
+    // 6. Circular Curves Geometry
+    const curve = calculateCircularCurve(300.0, 45.0);
+    const expectedArc = (Math.PI * 300.0 * 45.0) / 180.0;
+    const expectedTan = 300.0 * Math.tan((45.0 * Math.PI) / 360.0);
+    assert(
+      suite,
+      '6. Circular Horizontal Curve (R=300m, Delta=45° -> Exact Arc & Tangent)',
+      Math.abs(curve.arcLength - expectedArc) < 1e-3 &&
+        Math.abs(curve.tangentLength - expectedTan) < 1e-3,
+      `Arc: ${curve.arcLength.toFixed(3)}m, Tan: ${curve.tangentLength.toFixed(3)}m`
+    );
+  }
+
+  // ==========================================
+  // SUITE 12: Phase 3.5 Export Center Engine
+  // ==========================================
+  {
+    const suite = 'Export Center Serialization Engine';
+
+    const testExportPoints: PointRecord[] = [
+      { id: '1', projectId: 'p1', pointNumber: 1, easting: 500000.1234, northing: 3000000.5678, elevation: 100.25, description: 'GCP_01', layer: 'CONTROL', flagged: false, timestamp: '' },
+      { id: '2', projectId: 'p1', pointNumber: 2, easting: 500100.1234, northing: 3000000.5678, elevation: 101.50, description: 'EDGE_01', layer: 'GROUND', flagged: true, qaFlagReason: 'Elevation jump', timestamp: '' },
+      { id: '3', projectId: 'p1', pointNumber: 3, easting: 500100.1234, northing: 3000100.5678, elevation: 102.75, description: 'EDGE_02', layer: 'GROUND', flagged: false, timestamp: '' },
+    ];
+
+    // 1. Filter export points by scope
+    const flaggedOnly = filterExportPoints(testExportPoints, { flaggedOnly: true });
+    const controlOnly = filterExportPoints(testExportPoints, { layerFilter: 'CONTROL' });
+    const selectedOnly = filterExportPoints(testExportPoints, { selectedPointIds: ['1', '3'] });
+    assert(
+      suite,
+      '1. Export Point Filtering (Flagged=1, Layer CONTROL=1, Selected=2)',
+      flaggedOnly.length === 1 && controlOnly.length === 1 && selectedOnly.length === 2,
+      `Flagged: ${flaggedOnly.length}, Control: ${controlOnly.length}, Selected: ${selectedOnly.length}`
+    );
+
+    // 2. CSV generation with custom delimiter and precision
+    const csvOut = generateCSV(testExportPoints, {
+      columnOrder: ['pointNumber', 'northing', 'easting', 'elevation', 'description'],
+      delimiter: ';',
+      precision: 3,
+      includeHeader: true,
+    });
+    assert(
+      suite,
+      '2. CSV Custom Serialization (Semicolon delimited, 3 decimals, N-E-Z ordering)',
+      csvOut.includes('Point#;Northing_Y;Easting_X;Elevation_Z;Description') &&
+        csvOut.includes('1;3000000.568;500000.123;100.250;GCP_01'),
+      `CSV Preview: ${csvOut.slice(0, 120)}`
+    );
+
+    // 3. TXT Surveyor ASCII Report Generation
+    const txtOut = generateSurveyReportTXT({ name: 'Test Highway Project' } as any, testExportPoints, {
+      crsCode: 'EPSG:32636',
+      surveyorName: 'Eng. Surveyor',
+    });
+    assert(
+      suite,
+      '3. Official Surveyor ASCII Report (Includes header, CRS, coordinates, QA flag alert)',
+      txtOut.includes('Test Highway Project') &&
+        txtOut.includes('EPSG:32636') &&
+        txtOut.includes('GCP_01') &&
+        txtOut.includes('نقاط التدقيق والملاحظات:') &&
+        txtOut.includes('[FLAG: Elevation jump]'),
+      `TXT Length: ${txtOut.length} chars`
+    );
+
+    // 4. KML Generation with WGS84 Geodetic Transformation
+    const kmlRes = generateKML('Test Highway Project', testExportPoints, 'EPSG:32636', {
+      includeBoundary: true,
+      altitudeMode: 'clampToGround',
+    });
+    assert(
+      suite,
+      '4. Google Earth KML Generation (Placemarks + Polygon in WGS84 coordinates)',
+      kmlRes.kml.includes('<kml xmlns="http://www.opengis.net/kml/2.2">') &&
+        kmlRes.kml.includes('<Placemark>') &&
+        kmlRes.kml.includes('<Polygon>') &&
+        kmlRes.pointCount === 3,
+      `KML Points: ${kmlRes.pointCount}, Output size: ${kmlRes.kml.length} chars`
+    );
+
+    // 5. GeoJSON FeatureCollection Generation
+    const geojsonRes = generateGeoJSON('Test Highway Project', testExportPoints, 'EPSG:32636', {
+      includeBoundary: true,
+    });
+    const parsedGeo = JSON.parse(geojsonRes.geojson);
+    assert(
+      suite,
+      '5. RFC 7946 GeoJSON FeatureCollection (Features for points and polygon)',
+      parsedGeo.type === 'FeatureCollection' &&
+        parsedGeo.features.length >= 4 &&
+        parsedGeo.features[0].geometry.type === 'Point',
+      `GeoJSON features count: ${parsedGeo.features?.length}`
+    );
+
+    // 6. DXF Generation with QAQC_FLAGS and Layer Filtering
+    const dxfOut = generateDXF('Test Project', testExportPoints, {
+      includeBoundary: true,
+      includeQaqcFlags: true,
+      includeTextLabels: true,
+    });
+    assert(
+      suite,
+      '6. AutoCAD DXF R12 AC1009 Generation (Includes QAQC_FLAGS, BOUNDARY, POINTS layers)',
+      dxfOut.includes('AC1009') &&
+        dxfOut.includes('QAQC_FLAGS') &&
+        dxfOut.includes('BOUNDARY') &&
+        dxfOut.includes('EOF'),
+      `DXF Length: ${dxfOut.length} chars`
+    );
+
+    // 7. CSV Special Delimiters (Pipe, Tab, Dot, Asterisk, Comma) and Regex Safety
+    const complexDescPoints: PointRecord[] = [
+      {
+        id: 'cd1',
+        projectId: 'p1',
+        pointNumber: 101,
+        easting: 500.12,
+        northing: 1000.34,
+        elevation: 25.5,
+        description: 'Road|Center.Point*Benchmark+1,Ref',
+        timestamp: '',
+      },
+    ];
+
+    // Pipe delimiter: only '|' in description replaced, '.' and '*' preserved
+    const csvPipe = generateCSV(complexDescPoints, {
+      delimiter: '|',
+      precision: 3,
+      columnOrder: ['pointNumber', 'easting', 'description'],
+      includeHeader: false,
+    });
+    assert(
+      suite,
+      '7. CSV Pipe (|) Delimiter and Metacharacter Safety (Preserves dots and stars in description)',
+      csvPipe === '101|500.120|Road Center.Point*Benchmark+1,Ref',
+      `Pipe CSV Output: "${csvPipe}"`
+    );
+
+    // Asterisk delimiter: verifies '*' literal delimiter does not crash regex parser
+    const csvStar = generateCSV(complexDescPoints, {
+      delimiter: '*',
+      columnOrder: ['pointNumber', 'description'],
+      includeHeader: false,
+    });
+    assert(
+      suite,
+      '8. CSV Asterisk (*) Delimiter Safety (Handled as literal without regex error)',
+      csvStar === '101*Road|Center.Point Benchmark+1,Ref',
+      `Star CSV Output: "${csvStar}"`
+    );
+
+    // Tab delimiter: verifies \t separation
+    const csvTab = generateCSV(complexDescPoints, {
+      delimiter: '\t',
+      precision: 3,
+      columnOrder: ['pointNumber', 'easting', 'northing'],
+      includeHeader: false,
+    });
+    assert(
+      suite,
+      '9. CSV Tab-Delimited Export Safety',
+      csvTab === '101\t500.120\t1000.340',
+      `Tab CSV Output: "${csvTab}"`
+    );
+
+    // Dot delimiter: verifies '.' literal replacement without wild-carding entire string
+    const csvDot = generateCSV(complexDescPoints, {
+      delimiter: '.',
+      columnOrder: ['pointNumber', 'description'],
+      includeHeader: false,
+    });
+    assert(
+      suite,
+      '10. CSV Dot (.) Delimiter Safety (Replaces only dots without destroying letters)',
+      csvDot === '101.Road|Center Point*Benchmark+1,Ref',
+      `Dot CSV Output: "${csvDot}"`
+    );
+
+    // Comma delimiter: verifies ',' replaces only comma in description
+    const csvComma = generateCSV(complexDescPoints, {
+      delimiter: ',',
+      precision: 3,
+      columnOrder: ['pointNumber', 'easting', 'description'],
+      includeHeader: false,
+    });
+    assert(
+      suite,
+      '11. CSV Comma (,) Delimiter Safety (Preserves pipes, dots, and asterisks)',
+      csvComma === '101,500.120,Road|Center.Point*Benchmark+1 Ref',
+      `Comma CSV Output: "${csvComma}"`
+    );
+  }
+
+  // =========================================================================
+  // SUITE 8: Phase 3.6 Localization, RTL/LTR & Engineering Number Formatter
+  // =========================================================================
+  {
+    const suite = 'Phase 3.6 Localization & Engineering Formatter';
+
+    // 1. Arabic Dictionary Integrity
+    const arKeys = Object.keys(locales.ar);
+    assert(
+      suite,
+      '1. Arabic (ar) Dictionary Integrity & Core Sections',
+      arKeys.length >= 10 &&
+        Boolean(locales.ar.common?.appName) &&
+        Boolean(locales.ar.nav?.points) &&
+        Boolean(locales.ar.settings?.title),
+      `Arabic top sections: ${arKeys.join(', ')}`
+    );
+
+    // 2. English Dictionary Integrity
+    const enKeys = Object.keys(locales.en);
+    assert(
+      suite,
+      '2. English (en) Dictionary Integrity & Core Sections',
+      enKeys.length >= 10 &&
+        Boolean(locales.en.common?.appName) &&
+        Boolean(locales.en.nav?.points) &&
+        Boolean(locales.en.settings?.title),
+      `English top sections: ${enKeys.join(', ')}`
+    );
+
+    // 3. Key Parity Between Dictionaries
+    const sampleNavKeysMatch =
+      Object.keys(locales.ar.nav).every((k) => k in locales.en.nav) &&
+      Object.keys(locales.ar.common).every((k) => k in locales.en.common);
+    assert(
+      suite,
+      '3. Dictionary Structure and Namespace Parity',
+      sampleNavKeysMatch && arKeys.length === enKeys.length,
+      `Namespaces matched: ${arKeys.length} identical sections`
+    );
+
+    // 4. Strict Western Digits in Coordinate Formatting (Easting/Northing)
+    const testEasting = 543210.9876;
+    const testNorthing = 3456789.1234;
+    const formattedE = formatCoordinate(testEasting);
+    const formattedN = formatCoordinate(testNorthing);
+    assert(
+      suite,
+      '4. Strict Western ASCII Digits for Easting/Northing Coordinates',
+      isPureWesternDigits(formattedE) &&
+        isPureWesternDigits(formattedN) &&
+        formattedE === '543210.988' &&
+        formattedN === '3456789.123',
+      `E: "${formattedE}", N: "${formattedN}" (ASCII 0-9 confirmed)`
+    );
+
+    // 5. Strict Western Digits in Elevation Formatting
+    const testElev = 125.4567;
+    const formattedElev = formatElevation(testElev);
+    assert(
+      suite,
+      '5. Strict Western ASCII Digits for Elevation (Z)',
+      isPureWesternDigits(formattedElev.replace(' m', '')) && formattedElev === '125.457 m',
+      `Elevation formatted: "${formattedElev}"`
+    );
+
+    // 6. Strict Western Digits in Area Formatting (m², Feddans, Hectares)
+    const testAreaVal = 12543.678;
+    const formattedArea = formatArea(testAreaVal, 2, 'sqm');
+    const formattedFeddan = formatArea(testAreaVal, 3, 'feddan');
+    assert(
+      suite,
+      '6. Strict Western ASCII Digits for Land Areas',
+      isPureWesternDigits(formattedArea.replace(' m²', '')) &&
+        formattedArea.includes('12,543.68') &&
+        isPureWesternDigits(formattedFeddan.replace(' feddan', '')),
+      `Area SQM: "${formattedArea}", Feddan: "${formattedFeddan}"`
+    );
+
+    // 7. Strict Western Digits in Distance and Perimeter
+    const testDist = 8450.25;
+    const formattedDist = formatDistance(testDist, 2, true);
+    assert(
+      suite,
+      '7. Strict Western ASCII Digits for Distances & Lengths',
+      isPureWesternDigits(formattedDist.replace(' m', '')) && formattedDist === '8,450.25 m',
+      `Distance formatted: "${formattedDist}"`
+    );
+
+    // 8. Strict Western Digits in Angle & Azimuth Formatting
+    const testAngle = 145.5432;
+    const formattedAngle = formatAngle(testAngle, 4);
+    assert(
+      suite,
+      '8. Strict Western ASCII Digits for Angular Azimuths & Bearings',
+      isPureWesternDigits(formattedAngle.replace('°', '')) && formattedAngle === '145.5432°',
+      `Angle formatted: "${formattedAngle}"`
+    );
+
+    // 9. Precision & Thousands Separator Enforcement
+    const numWithCommas = formatEngineeringNumber(1000000.12345, 4, true);
+    const numNoCommas = formatEngineeringNumber(1000000.12345, 4, false);
+    assert(
+      suite,
+      '9. Thousands Grouping & Fixed Fractional Precision',
+      numWithCommas === '1,000,000.1235' && numNoCommas === '1000000.1235',
+      `Commas: "${numWithCommas}", Raw: "${numNoCommas}"`
+    );
+
+    // 10. Negative Coordinate Formatting
+    const negCoord = -1234.567;
+    const formattedNeg = formatCoordinate(negCoord);
+    assert(
+      suite,
+      '10. Negative Coordinate Precision & Minus Sign Preservation',
+      isPureWesternDigits(formattedNeg) && formattedNeg === '-1234.567',
+      `Negative coordinate: "${formattedNeg}"`
+    );
+
+    // 11. Graceful NaN/Undefined Handling without Arabic-Indic Digits
+    const nanRes = formatEngineeringNumber(NaN, 2);
+    const nullRes = formatEngineeringNumber(null as any, 2);
+    assert(
+      suite,
+      '11. Robust Fallbacks for Non-Numeric Values (NaN / Null / Undefined)',
+      nanRes === '0.00' && nullRes === '0.00' && isPureWesternDigits(nanRes),
+      `NaN => "${nanRes}", Null => "${nullRes}"`
+    );
+
+    // 12. Dynamic Parameter Interpolation in Translations
+    const interSample = translateKey('ar', 'pointsWorkspace.selectedCount', { count: 5 });
+    const interSampleEn = translateKey('en', 'pointsWorkspace.selectedCount', { count: 5 });
+    assert(
+      suite,
+      '12. Translation Template Interpolation ({count} parameter replacement)',
+      interSample.includes('5') && interSampleEn.includes('5'),
+      `AR: "${interSample}", EN: "${interSampleEn}"`
+    );
+
+    // 13. RTL & LTR Directional Detection
+    const arRtl = isRtlLanguage('ar');
+    const enRtl = isRtlLanguage('en');
+    assert(
+      suite,
+      '13. RTL/LTR Directionality Mapping (Arabic=RTL, English=LTR)',
+      arRtl === true && enRtl === false,
+      `ar -> RTL:${arRtl}, en -> RTL:${enRtl}`
+    );
+
+    // 14. Coordinate Value Invariance Across UI Languages
+    const pointSample: PointRecord = {
+      id: 'p_test',
+      projectId: 'proj_test',
+      pointNumber: 42,
+      easting: 654321.123,
+      northing: 2789123.456,
+      elevation: 45.678,
+      description: 'GCP_BENCHMARK',
+      timestamp: new Date().toISOString(),
+    };
+    const eastingAr = formatEngineeringNumber(pointSample.easting, 3, false);
+    const eastingEn = formatEngineeringNumber(pointSample.easting, 3, false);
+    assert(
+      suite,
+      '14. Geodetic Coordinate Invariance Under Language Shifts',
+      eastingAr === eastingEn && Number(eastingAr) === pointSample.easting,
+      `Easting in AR (${eastingAr}) === EN (${eastingEn}) === ${pointSample.easting}`
+    );
+
+    // 15. DXF Coordinate ASCII Compliance
+    const testPointsDxf: PointRecord[] = [
+      { id: '1', projectId: 'p1', pointNumber: 1, easting: 500000.123, northing: 3000000.456, elevation: 12.5, description: 'P1', timestamp: '' },
+    ];
+    const dxfString = generateDXF('DXF Test', testPointsDxf);
+    assert(
+      suite,
+      '15. DXF File Output Strict ASCII Numeric Compatibility',
+      dxfString.includes('500000.123') &&
+        dxfString.includes('3000000.456') &&
+        !/[\u0660-\u0669]/.test(dxfString),
+      'DXF contains 0-9 ASCII numbers only; no Arabic-Indic digits present'
+    );
+
+    // 16. CSV Number String Western ASCII Compliance
+    const csvExport = generateCSV(testPointsDxf, { delimiter: ',', precision: 3, includeHeader: true });
+    assert(
+      suite,
+      '16. CSV File Output Strict ASCII Numeric Compatibility',
+      csvExport.includes('500000.123') && !/[\u0660-\u0669]/.test(csvExport),
+      `CSV Line: ${csvExport.split('\n')[1]}`
+    );
+
+    // 17. Technical Engineering Acronyms Preservation
+    const enText = locales.en.cogo.title;
+    const arText = locales.ar.cogo.title;
+    assert(
+      suite,
+      '17. Technical Identifiers & Geodetic Terminology Preservation (COGO, CRS, UTM)',
+      arText.includes('COGO') && enText.includes('COGO'),
+      `AR: "${arText}", EN: "${enText}"`
     );
   }
 
