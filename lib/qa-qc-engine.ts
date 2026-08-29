@@ -29,6 +29,7 @@ export type QAIssue = {
   affectedPointIds: string[];
   affectedPointNumbers: number[];
   recommendationAr: string;
+  recommendationEn?: string;
   outlierDetails?: OutlierEvidence[];
 };
 

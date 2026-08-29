@@ -18,7 +18,7 @@ import {
   type Centroid,
   type BoundingBox,
 } from '@/lib/survey-calculations';
-import { SUPPORTED_CRS, transformCoordinates } from '@/lib/crs-definitions';
+import { SUPPORTED_CRS, transformCoordinates, type CRSValidationLevel } from '@/lib/crs-definitions';
 
 export interface MapPointDTO extends PointRecord {
   lat: number;
@@ -66,7 +66,7 @@ export interface ProjectMapSummary {
   crsCode: string;
   crsName: string;
   datumName: string;
-  validationLevel: 'AUTHORITATIVE_GEODETIC' | 'REQUIRES_CONTROL_VALIDATION';
+  validationLevel: CRSValidationLevel;
 }
 
 /**
@@ -251,6 +251,9 @@ export function calculateMapPathMeasurement(
       easting: p.easting,
       northing: p.northing,
       elevation: p.elevation ?? 0,
+      description: '',
+      layer: 'MEASURE',
+      flagged: false,
       timestamp: '',
     }));
 

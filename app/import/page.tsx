@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { GuidedImportWizard } from '@/components/survey/guided-import-wizard';
-import { ImportExportWizard } from '@/components/survey/import-export-wizard';
-import { FileUp, Download, ShieldCheck } from 'lucide-react';
+import { ExportCenter } from '@/components/survey/export-center';
+import { FileUp, Download } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 export default function ImportPage() {
+  const { t, isRtl } = useTranslation();
   const [activeTab, setActiveTab] = useState<'guided-import' | 'export'>('guided-import');
 
   return (
@@ -13,10 +15,12 @@ export default function ImportPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            مركز استيراد وتصدير بيانات الرفع المساحي
+            {t('nav.importExport')}
           </h1>
           <p className="mt-1.5 text-sm text-slate-400">
-            مسار عمل استيراد موجه من 9 خطوات لتدقيق الإحداثيات والتحقق من نظم الإسناد، وتصدير بصيغ DXF و CSV و KML
+            {isRtl
+              ? 'مسار عمل استيراد موجه من 9 خطوات لتدقيق الإحداثيات والتحقق من نظم الإسناد، وتصدير بصيغ AutoCAD DXF و CSV و TXT و KML و GeoJSON'
+              : 'Guided 9-step survey import workflow with CRS validation, and multi-format AutoCAD DXF, CSV, TXT, KML, and GeoJSON export'}
           </p>
         </div>
 
@@ -31,7 +35,7 @@ export default function ImportPage() {
             }`}
           >
             <FileUp className="h-4 w-4" />
-            معالج الاستيراد الموجه (9-Step Import)
+            {isRtl ? 'معالج الاستيراد الموجه (9-Step Import)' : 'Guided 9-Step Import'}
           </button>
           <button
             onClick={() => setActiveTab('export')}
@@ -42,12 +46,12 @@ export default function ImportPage() {
             }`}
           >
             <Download className="h-4 w-4" />
-            التصدير الفوري (Export)
+            {isRtl ? 'مركز التصدير الهندسي (Export Center)' : 'Engineering Export Center'}
           </button>
         </div>
       </div>
 
-      {activeTab === 'guided-import' ? <GuidedImportWizard /> : <ImportExportWizard />}
+      {activeTab === 'guided-import' ? <GuidedImportWizard /> : <ExportCenter />}
     </div>
   );
 }

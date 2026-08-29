@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import {
   ArrowLeftRight,
-  Bot,
   Copy,
   Crosshair,
   Globe2,
@@ -15,7 +14,7 @@ import {
   Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { db, type PointRecord } from '@/lib/db';
+import { db } from '@/lib/db';
 import { useAppStore } from '@/lib/stores/app-store';
 import {
   SUPPORTED_CRS,
@@ -23,8 +22,10 @@ import {
   getAutoUtmZone,
 } from '@/lib/crs-definitions';
 import { transformProjectCrs } from '@/lib/point-operations';
+import { useTranslation, engFormat } from '@/lib/i18n';
 
 export function CoordinateForm() {
+  const { t, isRtl, language } = useTranslation();
   const currentProjectId = useAppStore((state) => state.currentProjectId);
   const activeCrs = useAppStore((state) => state.activeCrs);
   const setActiveCrs = useAppStore((state) => state.setActiveCrs);
@@ -52,6 +53,11 @@ export function CoordinateForm() {
   const sourceObj = SUPPORTED_CRS.find((c) => c.code === sourceCrs);
   const targetObj = SUPPORTED_CRS.find((c) => c.code === targetCrs);
 
+  const getCrsName = (crs: typeof sourceObj) => {
+    if (!crs) return '';
+    return language === 'ar' ? crs.nameAr : (crs.nameEn || crs.nameAr);
+  };
+
   const handleConvertSingle = (e: React.FormEvent) => {
     e.preventDefault();
     const x = parseFloat(inputX);
@@ -59,17 +65,17 @@ export function CoordinateForm() {
     const z = parseFloat(inputZ) || 0;
 
     if (isNaN(x) || isNaN(y)) {
-      toast.error('يرجى إدخال قيم إحداثيات رقمية صحيحة');
+      toast.error(t('crsSafety.validCoordsRequired'));
       return;
     }
 
     try {
       const result = transformCoordinates(x, y, z, sourceCrs, targetCrs);
       setConvertedResult(result);
-      toast.success('تم تحويل الإحداثيات بنجاح');
+      toast.success(t('crsSafety.coordTransformSuccess'));
     } catch (err) {
       console.error(err);
-      toast.error('فشل في تحويل الإحداثيات بين النظامين المحددين');
+      toast.error(t('crsSafety.coordTransformError'));
     }
   };
 
@@ -87,7 +93,7 @@ export function CoordinateForm() {
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast.error('متصفحك لا يدعم تحديد الموقع الجغرافي');
+      toast.error(t('crsSafety.geoNotSupported'));
       return;
     }
 
@@ -107,11 +113,11 @@ export function CoordinateForm() {
         // Auto determine UTM zone
         const auto = getAutoUtmZone(lng, lat);
         setTargetCrs(auto.epsg);
-        toast.success(`تم تحديد موقعك بدقة والتعرف التلقائي على ${auto.name}`);
+        toast.success(t('crsSafety.geoSuccessToast', { name: auto.name }));
       },
       (err) => {
         setIsLocating(false);
-        toast.error(`تعذر جلب الموقع: ${err.message}`);
+        toast.error(t('crsSafety.geoFetchError', { message: err.message }));
       },
       { enableHighAccuracy: true }
     );
@@ -120,7 +126,7 @@ export function CoordinateForm() {
   const handleBatchTransformProject = async () => {
     const points = await db.points.where('projectId').equals(currentProjectId).toArray();
     if (!points.length) {
-      toast.error('لا توجد نقاط في المشروع الحالي لتحويلها');
+      toast.error(t('crsSafety.noPointsInProjectToTransform'));
       return;
     }
 
@@ -135,13 +141,13 @@ export function CoordinateForm() {
 
       if (res.success) {
         setActiveCrs(targetCrs);
-        toast.success(`تم تحويل ${res.transformedCount} نقطة في المشروع بنجاح إلى ${targetCrs}`);
+        toast.success(t('crsSafety.batchTransformSuccessToast', { count: res.transformedCount, crs: targetCrs }));
       } else {
-        toast.error(res.error || 'حدث خطأ أثناء تحويل نقاط المشروع');
+        toast.error(res.error || t('common.error'));
       }
     } catch (err) {
       console.error(err);
-      toast.error('حدث خطأ أثناء تحويل نقاط المشروع');
+      toast.error(t('common.error'));
     } finally {
       setIsBatchTransforming(false);
     }
@@ -160,7 +166,7 @@ export function CoordinateForm() {
           }`}
         >
           <Crosshair className="h-4 w-4" />
-          تحويل نقطة مفردة (Single Point)
+          {t('crsSafety.singlePointMode')}
         </button>
         <button
           onClick={() => setMode('batch')}
@@ -171,27 +177,27 @@ export function CoordinateForm() {
           }`}
         >
           <RefreshCw className="h-4 w-4" />
-          تحويل جماعي لنقاط المشروع
+          {t('crsSafety.batchPointsMode')}
         </button>
       </div>
 
       {/* CRS SELECTION ROW */}
       <div className="glass-card p-5 sm:p-7">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-bold text-white">اختيار أنظمة الإحداثيات والمرجع الجيوديسي</h2>
+          <h2 className="text-base font-bold text-white">{t('crsSafety.crsSelectionTitle')}</h2>
           <button
             onClick={handleSwapCrs}
             className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-sky-400 hover:bg-slate-700"
           >
             <ArrowLeftRight className="h-3.5 w-3.5" />
-            عكس الاتجاه
+            {t('crsSafety.reverseDirection')}
           </button>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           {/* SOURCE CRS */}
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <span className="mb-2 block text-xs font-bold text-slate-400">النظام المصدر (Source CRS)</span>
+            <span className="mb-2 block text-xs font-bold text-slate-400">{t('crsSafety.sourceCrsLabel')}</span>
             <select
               value={sourceCrs}
               onChange={(e) => {
@@ -202,25 +208,25 @@ export function CoordinateForm() {
             >
               {SUPPORTED_CRS.map((crs) => (
                 <option key={crs.code} value={crs.code}>
-                  {crs.code} — {crs.nameAr} ({crs.category})
+                  {crs.code} — {getCrsName(crs)} ({crs.category})
                 </option>
               ))}
             </select>
             {sourceObj && (
               <div className="mt-2.5 space-y-1">
                 <p className="text-[11px] text-slate-400 font-medium">
-                  {sourceObj.nameEn} • {sourceObj.type === 'GEOGRAPHIC_2D' ? 'درجات عشرية Lat/Lon' : 'إسقاط مستوي أمتار (E, N)'}
+                  {sourceObj.nameEn} • {sourceObj.type === 'GEOGRAPHIC_2D' ? t('crsSafety.geographicDeg') : t('crsSafety.projectedMeters')}
                 </p>
                 <div className="flex items-center gap-1.5 text-[10px]">
                   {sourceObj.validationLevel === 'AUTHORITATIVE_GEODETIC' ? (
                     <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-400 font-medium border border-emerald-500/20">
                       <ShieldCheck className="h-3 w-3" />
-                      مرجع عالمي معتمد (WGS84/UTM)
+                      {t('crsSafety.authoritativeGeodetic')}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-300 font-medium border border-amber-500/20">
                       <AlertTriangle className="h-3 w-3" />
-                      يتطلب تدقيق مع ثوابت محلية (GCPs)
+                      {t('crsSafety.requiresLocalControl')}
                     </span>
                   )}
                 </div>
@@ -230,7 +236,7 @@ export function CoordinateForm() {
 
           {/* TARGET CRS */}
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <span className="mb-2 block text-xs font-bold text-slate-400">النظام الهدف (Target CRS)</span>
+            <span className="mb-2 block text-xs font-bold text-slate-400">{t('crsSafety.targetCrsLabel')}</span>
             <select
               value={targetCrs}
               onChange={(e) => {
@@ -241,25 +247,25 @@ export function CoordinateForm() {
             >
               {SUPPORTED_CRS.map((crs) => (
                 <option key={crs.code} value={crs.code}>
-                  {crs.code} — {crs.nameAr} ({crs.category})
+                  {crs.code} — {getCrsName(crs)} ({crs.category})
                 </option>
               ))}
             </select>
             {targetObj && (
               <div className="mt-2.5 space-y-1">
                 <p className="text-[11px] text-slate-400 font-medium">
-                  {targetObj.nameEn} • {targetObj.type === 'GEOGRAPHIC_2D' ? 'درجات عشرية Lat/Lon' : 'إسقاط مستوي أمتار (E, N)'}
+                  {targetObj.nameEn} • {targetObj.type === 'GEOGRAPHIC_2D' ? t('crsSafety.geographicDeg') : t('crsSafety.projectedMeters')}
                 </p>
                 <div className="flex items-center gap-1.5 text-[10px]">
                   {targetObj.validationLevel === 'AUTHORITATIVE_GEODETIC' ? (
                     <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-400 font-medium border border-emerald-500/20">
                       <ShieldCheck className="h-3 w-3" />
-                      مرجع عالمي معتمد (WGS84/UTM)
+                      {t('crsSafety.authoritativeGeodetic')}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-300 font-medium border border-amber-500/20">
                       <AlertTriangle className="h-3 w-3" />
-                      يتطلب تدقيق مع ثوابت محلية (GCPs)
+                      {t('crsSafety.requiresLocalControl')}
                     </span>
                   )}
                 </div>
@@ -273,9 +279,9 @@ export function CoordinateForm() {
           <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3.5 text-xs text-amber-200">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
             <div>
-              <strong className="text-amber-300">ملاحظة جيوديسية للمراجع الإقليمية:</strong>
+              <strong className="text-amber-300">{t('crsSafety.regionalNoticeTitle')}</strong>
               <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
-                تم دمج معاملات إزاحة الشفت المعيارية (+towgs84) للمرجع الإقليمي. نظراً لأن المراجع الإقليمية التاريخية غير متحدة المركز مع WGS84، فإن دقة التحويل الإقليمي تتراوح بين 3 إلى 5 أمتار وتتطلب تدقيقاً ومطابقة موقعية (Site Calibration) مع نقاط تحكم أرضية معتمدة (GCPs) للمشاريع التي تتطلب دقة سنتيمترية.
+                {t('crsSafety.regionalNoticeText')}
               </p>
             </div>
           </div>
@@ -287,14 +293,14 @@ export function CoordinateForm() {
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="glass-card p-5 sm:p-7">
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-base font-bold text-white">إدخال قيم الإحداثيات</h3>
+              <h3 className="text-base font-bold text-white">{t('crsSafety.inputCoordinatesTitle')}</h3>
               <button
                 onClick={handleGetCurrentLocation}
                 disabled={isLocating}
                 className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
               >
                 <LocateFixed className={`h-4 w-4 ${isLocating ? 'animate-spin' : ''}`} />
-                {isLocating ? 'جاري التحديد...' : 'موقعي الحالي (GPS)'}
+                {isLocating ? t('crsSafety.locatingProgress') : t('crsSafety.currentGpsLocation')}
               </button>
             </div>
 
@@ -302,8 +308,8 @@ export function CoordinateForm() {
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-slate-400">
                   {sourceObj?.type === 'GEOGRAPHIC_2D'
-                    ? 'خط الطول Longitude (X) بالدرجات'
-                    : 'الشرق Easting (X) بالمتر'}
+                    ? t('crsSafety.lonDeg')
+                    : t('crsSafety.eastingMeter')}
                 </label>
                 <input
                   type="number"
@@ -321,8 +327,8 @@ export function CoordinateForm() {
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-slate-400">
                   {sourceObj?.type === 'GEOGRAPHIC_2D'
-                    ? 'خط العرض Latitude (Y) بالدرجات'
-                    : 'الشمال Northing (Y) بالمتر'}
+                    ? t('crsSafety.latDeg')
+                    : t('crsSafety.northingMeter')}
                 </label>
                 <input
                   type="number"
@@ -339,7 +345,7 @@ export function CoordinateForm() {
 
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-slate-400">
-                  المنسوب Elevation (Z) بالمتر (اختياري)
+                  {t('crsSafety.elevMeterOpt')}
                 </label>
                 <input
                   type="number"
@@ -359,7 +365,7 @@ export function CoordinateForm() {
                 className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 py-3 text-xs font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-sky-400"
               >
                 <Sparkles className="h-4 w-4" />
-                تحويل الإحداثي الآن
+                {t('crsSafety.transformNowBtn')}
               </button>
             </form>
           </section>
@@ -367,9 +373,9 @@ export function CoordinateForm() {
           {/* RESULT DISPLAY */}
           <section className="glass-card flex flex-col justify-between p-5 sm:p-7">
             <div>
-              <h3 className="text-base font-bold text-white">نتيجة التحويل الجيوديسي</h3>
+              <h3 className="text-base font-bold text-white">{t('crsSafety.resultTitle')}</h3>
               <p className="mt-1 text-xs text-slate-400">
-                الإحداثيات المحسوبة بدقة في نظام {targetCrs}
+                {t('crsSafety.resultSubtitle', { crs: targetCrs })}
               </p>
             </div>
 
@@ -378,12 +384,12 @@ export function CoordinateForm() {
                 <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-400">
-                      {targetObj?.type === 'GEOGRAPHIC_2D' ? 'خط الطول Longitude (X)' : 'الشرق Easting (X)'}
+                      {targetObj?.type === 'GEOGRAPHIC_2D' ? t('crsSafety.lonDeg') : t('crsSafety.eastingMeter')}
                     </span>
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(convertedResult.x.toString());
-                        toast.success('تم نسخ الإحداثي');
+                        toast.success(t('crsSafety.copySuccess'));
                       }}
                       className="text-slate-400 hover:text-white"
                     >
@@ -400,12 +406,12 @@ export function CoordinateForm() {
                 <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-400">
-                      {targetObj?.type === 'GEOGRAPHIC_2D' ? 'خط العرض Latitude (Y)' : 'الشمال Northing (Y)'}
+                      {targetObj?.type === 'GEOGRAPHIC_2D' ? t('crsSafety.latDeg') : t('crsSafety.northingMeter')}
                     </span>
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(convertedResult.y.toString());
-                        toast.success('تم نسخ الإحداثي');
+                        toast.success(t('crsSafety.copySuccess'));
                       }}
                       className="text-slate-400 hover:text-white"
                     >
@@ -420,16 +426,16 @@ export function CoordinateForm() {
                 </div>
 
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                  <span className="text-xs text-slate-400">المنسوب Elevation (Z)</span>
+                  <span className="text-xs text-slate-400">{t('pointsWorkspace.thElevation')}</span>
                   <p dir="ltr" className="mt-1 text-lg font-bold text-emerald-400">
-                    {convertedResult.z.toFixed(3)} م
+                    {convertedResult.z.toFixed(3)} {t('units.meter')}
                   </p>
                 </div>
               </div>
             ) : (
               <div className="my-10 flex flex-col items-center justify-center text-center">
                 <Globe2 className="h-10 w-10 text-slate-700" />
-                <p className="mt-3 text-xs text-slate-500">أدخل الإحداثيات واضغط تحويل لعرض النتيجة</p>
+                <p className="mt-3 text-xs text-slate-500">{t('crsSafety.enterCoordsHint')}</p>
               </div>
             )}
           </section>
@@ -438,14 +444,14 @@ export function CoordinateForm() {
         /* BATCH CONVERSION VIEW */
         <section className="glass-card p-5 sm:p-7">
           <div className="mb-5">
-            <h3 className="text-base font-bold text-white">التحويل الجماعي لنقاط المشروع</h3>
+            <h3 className="text-base font-bold text-white">{t('crsSafety.batchTransformTitle')}</h3>
             <p className="mt-1 text-xs text-slate-400">
-              تحويل كامل إحداثيات نقاط الرفع المساحي في المشروع من {sourceCrs} إلى {targetCrs}
+              {t('crsSafety.batchTransformSubtitle', { source: sourceCrs, target: targetCrs })}
             </p>
           </div>
 
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-200">
-            <strong>⚠️ تنبيه مهم:</strong> سيؤدي هذا الإجراء إلى إعادة حساب وتحديث إحداثيات جميع نقاط المشروع في قاعدة البيانات بشكل دائم.
+            <strong>{t('crsSafety.batchWarning')}</strong>
           </div>
 
           <div className="mt-6 flex items-center justify-between">
@@ -457,12 +463,12 @@ export function CoordinateForm() {
               {isBatchTransforming ? (
                 <>
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  جاري تحويل النقاط...
+                  {t('crsSafety.batchTransformingProgress')}
                 </>
               ) : (
                 <>
                   <Sparkles className="h-4 w-4" />
-                  تحويل جميع نقاط المشروع الآن
+                  {t('crsSafety.batchTransformNowBtn')}
                 </>
               )}
             </button>

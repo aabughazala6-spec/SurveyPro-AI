@@ -16,6 +16,7 @@ export type CRSDefinition = {
   ellipsoid: string;
   validationLevel: CRSValidationLevel;
   transformationNoteAr: string;
+  transformationNoteEn?: string;
   expectedAccuracy: string;
 };
 

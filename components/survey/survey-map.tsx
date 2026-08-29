@@ -450,8 +450,7 @@ export default function SurveyMap() {
   const handleSaveNewPoint = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await addSurveyPoint({
-        projectId: currentProjectId,
+      const res = await addSurveyPoint(currentProjectId, {
         pointNumber: newPointCoords.pointNumber,
         easting: newPointCoords.easting,
         northing: newPointCoords.northing,
@@ -460,11 +459,11 @@ export default function SurveyMap() {
         layer: newPointCoords.layer.trim() || 'GROUND',
       });
 
-      if (res.success && res.point) {
-        toast.success(`تمت إضافة النقطة P${res.point.pointNumber} بنجاح إلى قاعدة البيانات`);
+      if (res.success && res.id) {
+        toast.success(`تمت إضافة النقطة P${newPointCoords.pointNumber} بنجاح إلى قاعدة البيانات`);
         setIsAddPointModalOpen(false);
-        setSelectedPointId(res.point.id);
-        setFocusedPointId(res.point.id);
+        setSelectedPointId(res.id);
+        setFocusedPointId(res.id);
       } else {
         toast.error(res.error || 'تعذر إضافة النقطة المساحية');
       }
@@ -523,7 +522,11 @@ export default function SurveyMap() {
   // Toggle QA flag
   const handleToggleFlag = async (id: string, currentFlag: boolean, pointNumber: number) => {
     try {
-      await bulkToggleFlag([id], !currentFlag);
+      await bulkToggleFlag({
+        projectId: currentProjectId,
+        pointIds: [id],
+        flagged: !currentFlag,
+      });
       toast.success(
         !currentFlag
           ? `تم تعليم النقطة P${pointNumber} للتدقيق والمراجعة`
